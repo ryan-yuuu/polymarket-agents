@@ -121,10 +121,16 @@ class MarketDataStream:
     async def _listen(self, ws: ClientConnection) -> None:
         async for raw_msg in ws:
             try:
-                msg = json.loads(raw_msg)
-                self._handle_message(msg)
+                data = json.loads(raw_msg)
             except json.JSONDecodeError:
                 logger.debug("Non-JSON message: %s", raw_msg[:100])
+                continue
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict):
+                        self._handle_message(item)
+            elif isinstance(data, dict):
+                self._handle_message(data)
 
     async def _send_subscribe(self, token_ids: list[str]) -> None:
         if not self._ws:
@@ -162,19 +168,20 @@ class MarketDataStream:
             )
 
         elif event_type == "price_change":
-            # Price tick — update mid, preserve existing bid/ask
-            token_id = msg.get("asset_id", "")
-            price = float(msg.get("price", 0))
-            if token_id and price:
-                existing = self._cache.get(token_id)
-                if existing:
-                    self._cache[token_id] = existing.model_copy(
-                        update={"mid_price": price, "timestamp": now}
-                    )
-                else:
-                    self._cache[token_id] = PriceSnapshot(
-                        token_id=token_id, mid_price=price, timestamp=now
-                    )
+            for change in msg.get("price_changes", []):
+                token_id = change.get("asset_id", "")
+                if not token_id:
+                    continue
+                best_bid = float(change.get("best_bid", 0))
+                best_ask = float(change.get("best_ask", 0))
+                mid = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask > 0 else max(best_bid, best_ask)
+                self._cache[token_id] = PriceSnapshot(
+                    token_id=token_id,
+                    best_bid=best_bid,
+                    best_ask=best_ask,
+                    mid_price=mid,
+                    timestamp=now,
+                )
 
         elif event_type in ("last_trade_price", "tick_size_change"):
             # Informational, skip

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -11,12 +12,6 @@ import httpx
 from polymarket_agents.domain.models import Timeframe, TokenPair
 
 logger = logging.getLogger(__name__)
-
-_TIMEFRAME_SLUGS: dict[Timeframe, str] = {
-    Timeframe.FIVE_MIN: "5m",
-    Timeframe.FIFTEEN_MIN: "15m",
-    Timeframe.FOUR_HOUR: "4h",
-}
 
 
 class GammaClient:
@@ -28,33 +23,24 @@ class GammaClient:
     async def find_active_markets(
         self, timeframe: Timeframe, limit: int = 5
     ) -> list[TokenPair]:
-        tag = _TIMEFRAME_SLUGS[timeframe]
-        params = {
-            "closed": "false",
-            "tag": f"btc-updown-{tag}",
-            "limit": limit,
-            "order": "endDate",
-            "ascending": "true",
-        }
-        resp = await self._client.get("/markets", params=params)
-        resp.raise_for_status()
-        raw_markets = resp.json()
+        now = int(time.time())
+        window_ts = now - (now % timeframe.seconds)
+        slug = f"btc-updown-{timeframe.value}-{window_ts}"
 
-        if not raw_markets:
-            # Fallback: keyword search
-            params = {
-                "closed": "false",
-                "limit": limit,
-                "order": "endDate",
-                "ascending": "true",
-                "tag": "btc-updown",
-            }
-            resp = await self._client.get("/markets", params=params)
-            resp.raise_for_status()
-            raw_markets = resp.json()
+        logger.info("Querying events with slug: %s", slug)
+        resp = await self._client.get("/events", params={"slug": slug})
+        resp.raise_for_status()
+        events = resp.json()
+
+        if not events:
+            logger.warning("No event found for slug: %s", slug)
+            return []
+
+        event = events[0] if isinstance(events, list) else events
+        markets = event.get("markets", [])
 
         results: list[TokenPair] = []
-        for market in raw_markets:
+        for market in markets[:limit]:
             parsed = self._parse_market(market)
             if parsed is not None:
                 results.append(parsed)
@@ -62,29 +48,30 @@ class GammaClient:
 
     def _parse_market(self, raw: dict) -> TokenPair | None:
         try:
-            # Gamma API returns tokens as JSON-encoded string or list
-            tokens = raw.get("tokens", [])
-            if isinstance(tokens, str):
-                tokens = json.loads(tokens)
+            outcomes = raw.get("outcomes", [])
+            if isinstance(outcomes, str):
+                outcomes = json.loads(outcomes)
 
-            if len(tokens) < 2:
-                logger.warning("Market %s has fewer than 2 tokens", raw.get("slug"))
+            clob_token_ids = raw.get("clobTokenIds", [])
+            if isinstance(clob_token_ids, str):
+                clob_token_ids = json.loads(clob_token_ids)
+
+            if len(outcomes) < 2 or len(clob_token_ids) < 2:
+                logger.warning("Market %s has fewer than 2 outcomes/tokens", raw.get("slug"))
                 return None
 
-            # Map outcomes: first token is typically "Up", second is "Down"
             up_token_id = None
             down_token_id = None
-            for token in tokens:
-                outcome = token.get("outcome", "").lower()
-                if "up" in outcome or "yes" in outcome:
-                    up_token_id = token["token_id"]
-                elif "down" in outcome or "no" in outcome:
-                    down_token_id = token["token_id"]
+            for i, outcome in enumerate(outcomes):
+                lower = outcome.lower()
+                if "up" in lower:
+                    up_token_id = clob_token_ids[i]
+                elif "down" in lower:
+                    down_token_id = clob_token_ids[i]
 
             if not up_token_id or not down_token_id:
-                # Fallback to positional
-                up_token_id = tokens[0]["token_id"]
-                down_token_id = tokens[1]["token_id"]
+                up_token_id = clob_token_ids[0]
+                down_token_id = clob_token_ids[1]
 
             end_date_str = raw.get("endDate", raw.get("end_date_iso", ""))
             end_date = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
