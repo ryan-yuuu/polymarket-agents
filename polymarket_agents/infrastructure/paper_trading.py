@@ -51,6 +51,8 @@ class AgentWallet:
         price: float,
         market_slug: str,
         end_date: datetime | None = None,
+        up_token_id: str = "",
+        down_token_id: str = "",
     ) -> TradeRecord:
         cost = size * price
 
@@ -59,6 +61,8 @@ class AgentWallet:
             mp = MarketPosition(
                 market_slug=market_slug,
                 end_date=end_date or datetime.now(timezone.utc),
+                up_token_id=up_token_id,
+                down_token_id=down_token_id,
             )
             self.positions[market_slug] = mp
 
@@ -195,6 +199,8 @@ class PaperTradingEngine:
         market_slug: str,
         end_date: datetime | None = None,
         resolve_fn: Callable[[str], Awaitable[str | None]] | None = None,
+        up_token_id: str = "",
+        down_token_id: str = "",
     ) -> tuple[TradeRecord, list[TradeRecord]]:
         async with self._agent_lock(agent_id):
             wallet = self._wallets.get(agent_id)
@@ -211,6 +217,8 @@ class PaperTradingEngine:
             record = wallet.apply_trade(
                 direction, order_side, size, execution_price, market_slug,
                 end_date=end_date,
+                up_token_id=up_token_id,
+                down_token_id=down_token_id,
             )
             self._append_csv(agent_id, record)
             return record, settlements

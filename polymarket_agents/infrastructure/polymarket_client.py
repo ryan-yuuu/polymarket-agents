@@ -132,13 +132,25 @@ class GammaClient:
         else:
             outcome_prices = outcome_prices_raw
 
-        tokens = market.get("tokens", [])
-        if isinstance(tokens, str):
-            tokens = json.loads(tokens)
+        # Use the outcomes field (e.g. ["Up", "Down"]) to identify the winner.
+        # The tokens field is often None for closed markets.
+        outcomes_raw = market.get("outcomes", "[]")
+        if isinstance(outcomes_raw, str):
+            try:
+                outcomes = json.loads(outcomes_raw)
+            except (json.JSONDecodeError, TypeError):
+                outcomes = []
+        else:
+            outcomes = outcomes_raw or []
 
         for i, price in enumerate(outcome_prices):
-            if str(price) == "1" and i < len(tokens):
-                outcome = tokens[i].get("outcome", "").lower()
+            try:
+                price_f = float(price)
+            except (ValueError, TypeError):
+                logger.warning("Non-numeric outcome price %r for market %s", price, slug)
+                continue
+            if price_f >= 0.99 and i < len(outcomes):
+                outcome = outcomes[i].lower()
                 if "up" in outcome or "yes" in outcome:
                     return "up"
                 elif "down" in outcome or "no" in outcome:

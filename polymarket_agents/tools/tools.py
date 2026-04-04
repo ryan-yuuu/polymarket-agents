@@ -159,6 +159,15 @@ async def place_order(
         else datetime.now(timezone.utc)
     )
 
+    # Reject trades on expired markets
+    if end_date <= datetime.now(timezone.utc):
+        return json.dumps(
+            {
+                "status": "error",
+                "message": "Market has expired. Wait for the next market window.",
+            }
+        )
+
     try:
         record, settlements = await _engine.execute_trade(
             agent_id=agent_id,
@@ -169,6 +178,8 @@ async def place_order(
             market_slug=market_slug,
             end_date=end_date,
             resolve_fn=_gamma.get_resolution,
+            up_token_id=up_token_id,
+            down_token_id=down_token_id,
         )
     except ValueError as e:
         return json.dumps({"status": "error", "message": str(e)})
@@ -212,8 +223,10 @@ async def get_portfolio(ctx: ToolContext) -> str:
     """Use this tool to get your current trading portfolio, containing any cash balance and open positions.
 
     Returns:
-        JSON with cash_balance, initial_balance, total_pnl, and
-        a list of holdings with unrealized P&L.
+        JSON with cash_balance and a list of active holdings with
+        per-position stats (size, avg_entry_price, current_mid_price,
+        unrealized_pnl). Expired positions are automatically settled
+        into your cash balance.
     """
     if _engine is None or _gamma is None:
         raise RuntimeError("Tools not initialized — call init_tools() first")
@@ -250,21 +263,18 @@ async def get_portfolio(ctx: ToolContext) -> str:
             s.price,
         )
 
+    now = datetime.now(timezone.utc)
     holdings = []
     for slug, mp in wallet.positions.items():
-        deps = ctx.deps.provided_deps
-        up_token_id = deps.get("up_token_id")
-        down_token_id = deps.get("down_token_id")
+        # Hide expired-but-unresolved positions
+        if mp.end_date < now:
+            continue
 
         for direction_str, pos in [("up", mp.up), ("down", mp.down)]:
             if pos is None or pos.size <= 0:
                 continue
 
-            token_id = None
-            if direction_str == "up":
-                token_id = up_token_id
-            else:
-                token_id = down_token_id
+            token_id = mp.up_token_id if direction_str == "up" else mp.down_token_id
 
             current_mid = None
             if token_id and _ws_stream:
@@ -280,23 +290,16 @@ async def get_portfolio(ctx: ToolContext) -> str:
                     "direction": direction_str,
                     "size": round(pos.size, 4),
                     "avg_entry_price": round(pos.avg_entry_price, 4),
-                    "current_mid_price": round(current_mid, 4) if current_mid else None,
+                    "current_mid_price": (
+                        round(current_mid, 4) if current_mid else None
+                    ),
                     "unrealized_pnl": round(unrealized_pnl, 4),
                 }
             )
 
-    # Total P&L = (current balance - initial) + sum of unrealized
-    realized_pnl = wallet.balance - wallet.initial_balance
-    unrealized_total = sum(h["unrealized_pnl"] for h in holdings)
-    total_pnl = realized_pnl + unrealized_total
-
     return json.dumps(
         {
             "cash_balance": round(wallet.balance, 2),
-            "initial_balance": round(wallet.initial_balance, 2),
-            "realized_pnl": round(realized_pnl, 2),
-            "unrealized_pnl": round(unrealized_total, 2),
-            "total_pnl": round(total_pnl, 2),
             "holdings": holdings,
         }
     )

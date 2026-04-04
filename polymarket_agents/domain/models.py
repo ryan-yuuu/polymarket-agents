@@ -91,5 +91,7 @@ class MarketPosition(BaseModel):
 
     market_slug: str
     end_date: datetime
+    up_token_id: str = ""
+    down_token_id: str = ""
     up: Position | None = None
     down: Position | None = None
