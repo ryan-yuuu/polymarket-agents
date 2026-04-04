@@ -10,6 +10,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
+import sympy
 from calfkit import ToolContext, agent_tool
 
 from polymarket_agents.domain.models import Direction, OrderSide
@@ -38,13 +39,59 @@ def init_tools(
 
 
 @agent_tool
+def calculator(ctx: ToolContext, expression: str) -> str:
+    """Evaluate a math expression and return the result.
+
+    Use this tool whenever you need to perform arithmetic or financial math
+    such as position sizing, expected value, implied probability, P&L
+    calculations, percentage changes, or risk/reward ratios.
+
+    Operators: +, -, *, / (division), ** (power), % (modulo), parentheses.
+    Functions: abs(), sqrt(), log() (natural log), floor(), ceiling(),
+               Min(), Max(), Rational(a, b) for exact fractions.
+
+    Examples:
+        "100 * (1.00 - 0.55)"              → profit if 100 shares bought at $0.55 win
+        "0.70 * (1 - 0.55) - 0.30 * 0.55"  → EV per share at $0.55 if true prob is 70%
+        "(0.72 - 0.65) / 0.65 * 100"       → percentage change in price
+        "1000 * 0.05"                       → 5% position size on $1000 balance
+        "Rational(1, 3) + Rational(1, 6)"   → exact fraction arithmetic
+
+    The expression is parsed safely with sympy (no eval). Agents familiar
+    with sympy syntax can use any sympy expression that sympify accepts.
+
+    Args:
+        expression: A math expression string to evaluate.
+
+    Returns:
+        The result as a string, or a descriptive error message.
+    """
+    logger.debug("calculator called with expression=%r", expression)
+
+    try:
+        result = sympy.sympify(expression)
+    except (sympy.SympifyError, TypeError) as exc:
+        logger.debug("calculator parse error: %s", exc)
+        return f"Error: could not parse expression: {exc}"
+
+    # Evaluate to a float if the result is symbolic (e.g. contains sqrt)
+    if result.is_number and not result.is_Integer and not result.is_Rational:
+        evaluated = str(result.evalf())
+    else:
+        evaluated = str(result)
+
+    logger.debug("calculator result=%s", evaluated)
+    return evaluated
+
+
+@agent_tool
 async def place_order(
     ctx: ToolContext,
     direction: str,
     side: str,
     size: float,
 ) -> str:
-    """Place a paper trade order on the current BTC Up/Down market.
+    """Use this tool to place an order on the current BTC Up/Down market.
 
     Args:
         direction: "up" or "down" — which outcome to trade.
@@ -87,11 +134,13 @@ async def place_order(
         execution_price = _ws_stream.get_mid(token_id)
 
     if execution_price is None or execution_price <= 0:
-        return json.dumps({
-            "status": "error",
-            "message": f"No price data available for {direction} token. "
-            "WebSocket may not have received data yet. Try again shortly.",
-        })
+        return json.dumps(
+            {
+                "status": "error",
+                "message": f"No price data available for {direction} token. "
+                "Market data may not be available yet. Try again shortly.",
+            }
+        )
 
     agent_id = ctx.agent_name or "unknown"
 
@@ -120,7 +169,10 @@ async def place_order(
     for s in settlements:
         logger.info(
             "Settled %s %s: %d shares @ $%.2f",
-            s.market_slug, s.direction.value, s.size, s.price,
+            s.market_slug,
+            s.direction.value,
+            s.size,
+            s.price,
         )
 
     logger.info(
@@ -134,21 +186,23 @@ async def place_order(
         record.balance_after,
     )
 
-    return json.dumps({
-        "status": "filled",
-        "direction": direction,
-        "side": side,
-        "size": size,
-        "execution_price": round(execution_price, 4),
-        "cost": round(record.cost, 4),
-        "balance_after": round(record.balance_after, 2),
-        "settlements": len(settlements),
-    })
+    return json.dumps(
+        {
+            "status": "filled",
+            "direction": direction,
+            "side": side,
+            "size": size,
+            "execution_price": round(execution_price, 4),
+            "cost": round(record.cost, 4),
+            "balance_after": round(record.balance_after, 2),
+            "settlements": len(settlements),
+        }
+    )
 
 
 @agent_tool
 async def get_portfolio(ctx: ToolContext) -> str:
-    """Get the current paper trading portfolio for this agent.
+    """Use this tool to get your current trading portfolio, containing any cash balance and open positions.
 
     Returns:
         JSON with cash_balance, initial_balance, total_pnl, and
@@ -159,19 +213,25 @@ async def get_portfolio(ctx: ToolContext) -> str:
 
     agent_id = ctx.agent_name or "unknown"
     wallet, settlements = await _engine.settle_and_get_wallet(
-        agent_id, _gamma.get_resolution,
+        agent_id,
+        _gamma.get_resolution,
     )
 
     if wallet is None:
-        return json.dumps({
-            "status": "error",
-            "message": f"No wallet found for agent '{agent_id}'.",
-        })
+        return json.dumps(
+            {
+                "status": "error",
+                "message": f"No wallet found for agent '{agent_id}'.",
+            }
+        )
 
     for s in settlements:
         logger.info(
             "Settled %s %s: %d shares @ $%.2f",
-            s.market_slug, s.direction.value, s.size, s.price,
+            s.market_slug,
+            s.direction.value,
+            s.size,
+            s.price,
         )
 
     holdings = []
@@ -198,25 +258,29 @@ async def get_portfolio(ctx: ToolContext) -> str:
             if current_mid is not None:
                 unrealized_pnl = (current_mid - pos.avg_entry_price) * pos.size
 
-            holdings.append({
-                "market_slug": slug,
-                "direction": direction_str,
-                "size": round(pos.size, 4),
-                "avg_entry_price": round(pos.avg_entry_price, 4),
-                "current_mid_price": round(current_mid, 4) if current_mid else None,
-                "unrealized_pnl": round(unrealized_pnl, 4),
-            })
+            holdings.append(
+                {
+                    "market_slug": slug,
+                    "direction": direction_str,
+                    "size": round(pos.size, 4),
+                    "avg_entry_price": round(pos.avg_entry_price, 4),
+                    "current_mid_price": round(current_mid, 4) if current_mid else None,
+                    "unrealized_pnl": round(unrealized_pnl, 4),
+                }
+            )
 
     # Total P&L = (current balance - initial) + sum of unrealized
     realized_pnl = wallet.balance - wallet.initial_balance
     unrealized_total = sum(h["unrealized_pnl"] for h in holdings)
     total_pnl = realized_pnl + unrealized_total
 
-    return json.dumps({
-        "cash_balance": round(wallet.balance, 2),
-        "initial_balance": round(wallet.initial_balance, 2),
-        "realized_pnl": round(realized_pnl, 2),
-        "unrealized_pnl": round(unrealized_total, 2),
-        "total_pnl": round(total_pnl, 2),
-        "holdings": holdings,
-    })
+    return json.dumps(
+        {
+            "cash_balance": round(wallet.balance, 2),
+            "initial_balance": round(wallet.initial_balance, 2),
+            "realized_pnl": round(realized_pnl, 2),
+            "unrealized_pnl": round(unrealized_total, 2),
+            "total_pnl": round(total_pnl, 2),
+            "holdings": holdings,
+        }
+    )

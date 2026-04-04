@@ -15,7 +15,7 @@ from polymarket_agents.config.loader import load_config
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
 from polymarket_agents.infrastructure.polymarket_client import GammaClient
 from polymarket_agents.infrastructure.polymarket_ws import MarketDataStream
-from polymarket_agents.tools.tools import get_portfolio, init_tools, place_order
+from polymarket_agents.tools.tools import calculator, get_portfolio, init_tools, place_order
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,7 +68,7 @@ async def main() -> None:
 
     # --- Start Worker ---
     async with await Client.connect(config.broker_url) as client:
-        worker = Worker(client, nodes=[place_order, get_portfolio])
+        worker = Worker(client, nodes=[place_order, get_portfolio, calculator])
         logger.info("Tool worker starting on %s", config.broker_url)
         try:
             await worker.run()
