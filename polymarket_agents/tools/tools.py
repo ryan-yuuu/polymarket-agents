@@ -108,6 +108,15 @@ async def place_order(
     if size <= 0:
         return json.dumps({"status": "error", "message": "Size must be positive."})
 
+    agent_id = ctx.agent_name or "unknown"
+    if _engine.get_wallet(agent_id) is None:
+        return json.dumps(
+            {
+                "status": "error",
+                "message": "Wallet not initialized. Call get_portfolio first to set up your wallet.",
+            }
+        )
+
     # Resolve market context from deps
     deps = ctx.deps.provided_deps
     up_token_id = deps.get("up_token_id", "")
@@ -141,8 +150,6 @@ async def place_order(
                 "Market data may not be available yet. Try again shortly.",
             }
         )
-
-    agent_id = ctx.agent_name or "unknown"
 
     # Parse end_date from deps
     end_date_str = deps.get("end_date", "")
@@ -212,6 +219,15 @@ async def get_portfolio(ctx: ToolContext) -> str:
         raise RuntimeError("Tools not initialized — call init_tools() first")
 
     agent_id = ctx.agent_name or "unknown"
+    deps = ctx.deps.provided_deps
+
+    # Lazy wallet initialization — register on first portfolio check
+    if _engine.get_wallet(agent_id) is None:
+        initial_balance = deps.get("initial_balance")
+        resume = deps.get("resume", False)
+        _engine.register_agent(agent_id, initial_balance, resume=resume)
+        logger.info("Lazily registered wallet for agent '%s'", agent_id)
+
     wallet, settlements = await _engine.settle_and_get_wallet(
         agent_id,
         _gamma.get_resolution,

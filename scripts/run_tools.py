@@ -32,42 +32,15 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     config = load_config()
 
-    # --- Paper Trading Engine ---
+    # --- Paper Trading Engine (wallets registered lazily via get_portfolio) ---
     engine = PaperTradingEngine(data_dir="data")
-    for agent_cfg in config.agents:
-        engine.register_agent(
-            agent_cfg.name,
-            agent_cfg.initial_balance,
-            resume=agent_cfg.resume,
-        )
 
-    # --- WebSocket Stream ---
+    # --- WebSocket Stream (subscriptions added lazily via place_order) ---
     ws_stream = MarketDataStream(ws_url=config.market_data.ws_url)
     await ws_stream.start()
 
     # --- GammaClient (kept alive for resolution queries) ---
     gamma = GammaClient(base_url=config.market_data.gamma_api_url)
-
-    # Discover markets and subscribe to token feeds
-    try:
-        all_token_ids: set[str] = set()
-        timeframes = {agent_cfg.timeframe for agent_cfg in config.agents}
-        for tf in timeframes:
-            markets = await gamma.find_active_markets(tf, limit=3)
-            for market in markets:
-                all_token_ids.add(market.up_token_id)
-                all_token_ids.add(market.down_token_id)
-                logger.info("Discovered market: %s (%s)", market.slug, market.question)
-
-        if all_token_ids:
-            await ws_stream.subscribe(list(all_token_ids))
-            logger.info("Subscribed to %d token feeds", len(all_token_ids))
-        else:
-            logger.warning("No active markets found — tools will lack price data")
-    except Exception:
-        logger.exception(
-            "Market discovery failed — continuing without WS subscriptions"
-        )
 
     # --- Inject into tools module ---
     init_tools(engine, ws_stream, gamma)

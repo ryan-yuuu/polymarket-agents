@@ -144,6 +144,15 @@ uv run python -m scripts.run_client
 
 The scheduler will begin discovering active BTC Up/Down markets, fetching prices, and sending prompts to your agents. Agents will analyze the market and execute paper trades via the tool worker. Trade logs are written to `data/`.
 
+To deploy only a specific agent, pass `--agent <name>` to the agent worker and scheduler:
+
+```bash
+uv run python -m scripts.run_agents --agent btc-trader-15m
+uv run python -m scripts.run_client --agent btc-trader-15m
+```
+
+The tool worker does not need an `--agent` flag — it starts with zero wallets and lazily initializes them when an agent first calls `get_portfolio`.
+
 <br>
 
 ## Agent Configuration

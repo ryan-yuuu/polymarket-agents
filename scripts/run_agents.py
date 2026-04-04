@@ -11,7 +11,7 @@ import logging
 from calfkit import Client, Worker
 
 from polymarket_agents.agents.trader import build_trading_agent
-from polymarket_agents.config.loader import load_config, load_secrets
+from polymarket_agents.config.loader import filter_agents, load_config, load_secrets, parse_agent_filter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,9 +23,11 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     config = load_config()
     secrets = load_secrets()
+    agent_filter = parse_agent_filter()
+    agent_configs = filter_agents(config, agent_filter)
 
     agents = []
-    for agent_cfg in config.agents:
+    for agent_cfg in agent_configs:
         agent = build_trading_agent(agent_cfg, secrets)
         agents.append(agent)
         logger.info(

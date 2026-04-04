@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from calfkit import Client
 
-from polymarket_agents.config.loader import load_config
+from polymarket_agents.config.loader import filter_agents, load_config, parse_agent_filter
 from polymarket_agents.config.models import AgentConfig
 from polymarket_agents.domain.models import TokenPair
 from polymarket_agents.infrastructure.polymarket_client import ClobRestClient, GammaClient
@@ -98,6 +98,8 @@ async def _agent_loop(
                     "down_token_id": market.down_token_id,
                     "market_slug": market.slug,
                     "end_date": market.end_date.isoformat(),
+                    "initial_balance": agent_cfg.initial_balance,
+                    "resume": agent_cfg.resume,
                 },
                 timeout=_CYCLE_TIMEOUT,
             )
@@ -114,11 +116,13 @@ async def _agent_loop(
 
 async def main() -> None:
     config = load_config()
+    agent_filter = parse_agent_filter()
+    agents = filter_agents(config, agent_filter)
 
     gamma = GammaClient(base_url=config.market_data.gamma_api_url)
     clob = ClobRestClient(base_url=config.market_data.clob_api_url)
 
-    if not config.agents:
+    if not agents:
         logger.error("No agents configured in agents.yaml")
         return
 
@@ -128,7 +132,7 @@ async def main() -> None:
                 _agent_loop(client, agent_cfg, gamma, clob),
                 name=f"scheduler-{agent_cfg.name}",
             )
-            for agent_cfg in config.agents
+            for agent_cfg in agents
         ]
 
         logger.info(

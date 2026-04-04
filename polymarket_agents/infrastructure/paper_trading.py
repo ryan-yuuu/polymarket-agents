@@ -140,6 +140,10 @@ class PaperTradingEngine:
         *,
         resume: bool = False,
     ) -> None:
+        if agent_id in self._wallets:
+            logger.debug("Agent %s already registered, skipping", agent_id)
+            return
+
         if resume:
             csv_path = self._find_latest_csv(agent_id)
             if csv_path is None:
