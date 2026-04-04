@@ -1,6 +1,6 @@
 <h1 align="center">Polymarket Agents 📈🤖</h1>
 
-Autonomous AI trading agents for [Polymarket](https://polymarket.com/) BTC Up/Down prediction markets. Agents consume live market data, analyze probabilities, and execute paper trades, all orchestrated with the [Calfkit](https://github.com/calf-ai/calfkit-sdk) distributed agents framework.
+Autonomous AI trading agents for [Polymarket](https://polymarket.com/) BTC Up/Down prediction markets. Agents consume live market data, analyze probabilities, and execute trades, all orchestrated with the [Calfkit](https://github.com/calf-ai/calfkit-sdk) distributed agents framework.
 
 <br>
 
