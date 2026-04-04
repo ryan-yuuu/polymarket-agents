@@ -30,6 +30,7 @@ _CSV_FIELDS = [
     "price",
     "cost",
     "balance_after",
+    "initial_balance",
 ]
 
 
@@ -130,17 +131,46 @@ class PaperTradingEngine:
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._wallets: dict[str, AgentWallet] = {}
         self._locks: dict[str, asyncio.Lock] = {}
+        self._csv_paths: dict[str, Path] = {}
 
-    def register_agent(self, agent_id: str, initial_balance: float) -> None:
-        wallet = AgentWallet(agent_id, initial_balance)
-        csv_path = self._csv_path(agent_id)
-        if csv_path.exists():
+    def register_agent(
+        self,
+        agent_id: str,
+        initial_balance: float | None = None,
+        *,
+        resume: bool = False,
+    ) -> None:
+        if resume:
+            csv_path = self._find_latest_csv(agent_id)
+            if csv_path is None:
+                raise ValueError(
+                    f"resume=True but no existing CSV found for agent '{agent_id}'"
+                )
+            ib = self._read_initial_balance(csv_path)
+            wallet = AgentWallet(agent_id, ib)
             self._replay_trades(wallet, csv_path)
+            self._csv_paths[agent_id] = csv_path
             logger.info(
-                "Loaded %s: balance=$%.2f, %d market(s)",
+                "Resumed %s from %s: balance=$%.2f, %d market(s)",
                 agent_id,
+                csv_path.name,
                 wallet.balance,
                 len(wallet.positions),
+            )
+        else:
+            if initial_balance is None:
+                raise ValueError(
+                    "initial_balance is required when resume=False"
+                )
+            wallet = AgentWallet(agent_id, initial_balance)
+            epoch = int(datetime.now(timezone.utc).timestamp())
+            csv_path = self._data_dir / f"{agent_id}.{epoch}.trades.csv"
+            self._csv_paths[agent_id] = csv_path
+            logger.info(
+                "Registered %s (fresh): balance=$%.2f, csv=%s",
+                agent_id,
+                wallet.balance,
+                csv_path.name,
             )
         self._wallets[agent_id] = wallet
         self._locks[agent_id] = asyncio.Lock()
@@ -240,12 +270,40 @@ class PaperTradingEngine:
             del wallet.positions[slug]
         return records
 
-    def _csv_path(self, agent_id: str) -> Path:
-        return self._data_dir / f"{agent_id}_trades.csv"
+    def _find_latest_csv(self, agent_id: str) -> Path | None:
+        """Find the most recent CSV for *agent_id* by epoch in filename."""
+        best: tuple[int, Path] | None = None
+        for p in self._data_dir.glob(f"{agent_id}.*.trades.csv"):
+            parts = p.name.rsplit(".", 3)  # [agent_id, epoch, "trades", "csv"]
+            if len(parts) != 4:
+                continue
+            try:
+                epoch = int(parts[1])
+            except ValueError:
+                continue
+            if best is None or epoch > best[0]:
+                best = (epoch, p)
+        return best[1] if best else None
+
+    @staticmethod
+    def _read_initial_balance(csv_path: Path) -> float:
+        """Read initial_balance from the first data row of a CSV."""
+        with open(csv_path, newline="") as f:
+            reader = csv.DictReader(f)
+            row = next(reader, None)
+            if row is None:
+                raise ValueError(f"CSV is empty: {csv_path}")
+            raw = row.get("initial_balance")
+            if raw is None or raw == "":
+                raise ValueError(
+                    f"CSV missing initial_balance column: {csv_path}"
+                )
+            return float(raw)
 
     def _append_csv(self, agent_id: str, record: TradeRecord) -> None:
-        path = self._csv_path(agent_id)
+        path = self._csv_paths[agent_id]
         write_header = not path.exists()
+        wallet = self._wallets[agent_id]
         with open(path, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS)
             if write_header:
@@ -261,6 +319,7 @@ class PaperTradingEngine:
                 "price": record.price,
                 "cost": record.cost,
                 "balance_after": record.balance_after,
+                "initial_balance": wallet.initial_balance,
             })
 
     def _replay_trades(self, wallet: AgentWallet, csv_path: Path) -> None:

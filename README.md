@@ -160,7 +160,8 @@ Each agent in `agents.yaml` supports:
 | `model.api_key` | — | Per-agent API key override (falls back to `.env`) |
 | `timeframe` | `"15m"` | Market timeframe: `"5m"`, `"15m"`, or `"4h"` |
 | `poll_interval_seconds` | `60` | Seconds between market data prompts |
-| `initial_balance` | `10000.0` | Starting paper trading balance |
+| `initial_balance` | `10000.0` | Starting paper trading balance (omit when `resume: true`) |
+| `resume` | `false` | Resume from the latest saved session instead of starting fresh |
 | `system_prompt` | — | Override the default trading system prompt |
 
 <br>
@@ -192,16 +193,23 @@ agents:
 |---|---|
 | `place_order` | Buy or sell Up/Down shares at the live market price |
 | `get_portfolio` | View cash balance, positions, and unrealized P&L |
+| `calculator` | Evaluate arithmetic expressions |
 
 <br>
 
 ## Trade Data
 
-All trades are logged to CSV files in `data/` with columns:
+Each session writes trades to a timestamped CSV in `data/`:
 
 ```
-timestamp, agent_id, market_slug, end_date, direction, order_side, size, price, cost, balance_after
+{agent_id}.{epoch}.trades.csv
 ```
 
-The paper trading engine replays these on startup, so agent wallets persist across restarts.
+Columns:
+
+```
+timestamp, agent_id, market_slug, end_date, direction, order_side, size, price, cost, balance_after, initial_balance
+```
+
+Starting a new session (default) creates a fresh CSV, preserving old files. Setting `resume: true` on an agent finds its latest CSV, reads `initial_balance` from it, and replays all trades to restore the wallet.
 

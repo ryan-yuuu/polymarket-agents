@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings
 
 from polymarket_agents.domain.models import Timeframe
@@ -23,8 +23,17 @@ class AgentConfig(BaseModel):
     model: ModelConfig = Field(default_factory=ModelConfig)
     timeframe: Timeframe = Timeframe.FIFTEEN_MIN
     poll_interval_seconds: int = 60
-    initial_balance: float = 10_000.0
+    initial_balance: float | None = None
+    resume: bool = False
     system_prompt: str | None = None  # override default
+
+    @model_validator(mode="after")
+    def _validate_resume_balance(self) -> AgentConfig:
+        if self.resume and self.initial_balance is not None:
+            raise ValueError("initial_balance must not be set when resume=True")
+        if not self.resume and self.initial_balance is None:
+            self.initial_balance = 10_000.0
+        return self
 
 
 class MarketDataConfig(BaseModel):

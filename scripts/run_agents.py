@@ -40,7 +40,7 @@ async def main() -> None:
         logger.error("No agents configured in agents.yaml")
         return
 
-    async with await Client.connect(config.broker_url) as client:
+    async with Client.connect(config.broker_url) as client:
         worker = Worker(client, nodes=agents)
         logger.info("Agent worker starting with %d agents on %s", len(agents), config.broker_url)
         await worker.run()

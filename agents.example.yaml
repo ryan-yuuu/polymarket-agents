@@ -16,11 +16,21 @@ agents:
     timeframe: "15m"
     poll_interval_seconds: 60
     initial_balance: 10000.0
+    # resume: false  # default — starts a fresh session each time
+
+  # To resume a previous session (picks up latest CSV, ignores initial_balance):
+  # - name: "btc-trader-15m"
+  #   model:
+  #     provider: openai
+  #     model_name: "gpt-5-mini"
+  #   timeframe: "15m"
+  #   poll_interval_seconds: 60
+  #   resume: true
 
   # - name: "btc-trader-claude"
   #   model:
   #     provider: anthropic
-  #     model_name: "claude-sonnet-4-20250514"
+  #     model_name: "claude-sonnet-4-6"
   #   timeframe: "15m"
   #   poll_interval_seconds: 60
   #   initial_balance: 10000.0

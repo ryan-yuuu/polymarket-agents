@@ -15,7 +15,12 @@ from polymarket_agents.config.loader import load_config
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
 from polymarket_agents.infrastructure.polymarket_client import GammaClient
 from polymarket_agents.infrastructure.polymarket_ws import MarketDataStream
-from polymarket_agents.tools.tools import calculator, get_portfolio, init_tools, place_order
+from polymarket_agents.tools.tools import (
+    calculator,
+    get_portfolio,
+    init_tools,
+    place_order,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,11 +35,10 @@ async def main() -> None:
     # --- Paper Trading Engine ---
     engine = PaperTradingEngine(data_dir="data")
     for agent_cfg in config.agents:
-        engine.register_agent(agent_cfg.name, agent_cfg.initial_balance)
-        logger.info(
-            "Registered agent '%s' with $%.2f balance",
+        engine.register_agent(
             agent_cfg.name,
             agent_cfg.initial_balance,
+            resume=agent_cfg.resume,
         )
 
     # --- WebSocket Stream ---
@@ -61,13 +65,15 @@ async def main() -> None:
         else:
             logger.warning("No active markets found — tools will lack price data")
     except Exception:
-        logger.exception("Market discovery failed — continuing without WS subscriptions")
+        logger.exception(
+            "Market discovery failed — continuing without WS subscriptions"
+        )
 
     # --- Inject into tools module ---
     init_tools(engine, ws_stream, gamma)
 
     # --- Start Worker ---
-    async with await Client.connect(config.broker_url) as client:
+    async with Client.connect(config.broker_url) as client:
         worker = Worker(client, nodes=[place_order, get_portfolio, calculator])
         logger.info("Tool worker starting on %s", config.broker_url)
         try:

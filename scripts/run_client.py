@@ -122,7 +122,7 @@ async def main() -> None:
         logger.error("No agents configured in agents.yaml")
         return
 
-    async with await Client.connect(config.broker_url) as client:
+    async with Client.connect(config.broker_url) as client:
         tasks = [
             asyncio.create_task(
                 _agent_loop(client, agent_cfg, gamma, clob),
