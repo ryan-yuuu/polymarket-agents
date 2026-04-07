@@ -14,7 +14,9 @@ from calfkit import Client
 
 from polymarket_agents.config.loader import filter_agents, load_config, parse_agent_filter
 from polymarket_agents.config.models import AgentConfig
-from polymarket_agents.domain.models import TokenPair
+from polymarket_agents.domain.models import CANDLE_LAYERS, TokenPair
+from polymarket_agents.infrastructure.candle_format import format_candles_prompt
+from polymarket_agents.infrastructure.coinbase_client import CoinbaseKlinesClient
 from polymarket_agents.infrastructure.polymarket_client import ClobRestClient, GammaClient
 
 logging.basicConfig(
@@ -32,20 +34,26 @@ def _build_prompt(
     up_ask: float,
     down_bid: float,
     down_ask: float,
+    candle_section: str = "",
 ) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     end = market.end_date.strftime("%Y-%m-%d %H:%M:%S")
 
-    return (
+    parts = [
         f"It is {now} UTC.\n\n"
         f"CURRENT BTC UP/DOWN MARKET:\n"
         f"  Question: {market.question}\n"
         f"  Up:   bid ${up_bid:.4f} / ask ${up_ask:.4f}\n"
         f"  Down: bid ${down_bid:.4f} / ask ${down_ask:.4f}\n"
         f"  Market ends: {end} UTC\n\n"
-        f"Note: Buy orders fill at the ask price, sell orders fill at the bid price.\n\n"
-        f"Evaluate and decide whether to trade."
-    )
+        f"Note: Buy orders fill at the ask price, sell orders fill at the bid price.",
+    ]
+
+    if candle_section:
+        parts.append(candle_section)
+
+    parts.append("Evaluate and decide whether to trade.")
+    return "\n\n".join(parts)
 
 
 async def _agent_loop(
@@ -53,6 +61,7 @@ async def _agent_loop(
     agent_cfg: AgentConfig,
     gamma: GammaClient,
     clob: ClobRestClient,
+    coinbase: CoinbaseKlinesClient,
 ) -> None:
     """Polling loop for a single agent."""
     topic = f"agent.{agent_cfg.name}.input"
@@ -76,10 +85,20 @@ async def _agent_loop(
                 clob.get_price(market.down_token_id, "sell"),
             )
 
-            # 3. Build prompt
-            prompt = _build_prompt(market, up_bid, up_ask, down_bid, down_ask)
+            # 3. Fetch BTC price history
+            candle_section = ""
+            layers = CANDLE_LAYERS.get(agent_cfg.timeframe, [])
+            if layers:
+                try:
+                    candle_data = await coinbase.fetch_all_layers("BTC-USD", layers)
+                    candle_section = format_candles_prompt(candle_data)
+                except Exception:
+                    logger.warning("[%s] Candle fetch failed, continuing without price history", agent_cfg.name)
 
-            # 4. Dispatch to agent
+            # 4. Build prompt
+            prompt = _build_prompt(market, up_bid, up_ask, down_bid, down_ask, candle_section)
+
+            # 5. Dispatch to agent
             logger.info(
                 "[%s] Sending prompt — %s | Up: $%.4f/$%.4f | Down: $%.4f/$%.4f",
                 agent_cfg.name,
@@ -121,6 +140,7 @@ async def main() -> None:
 
     gamma = GammaClient(base_url=config.market_data.gamma_api_url)
     clob = ClobRestClient(base_url=config.market_data.clob_api_url)
+    coinbase = CoinbaseKlinesClient()
 
     if not agents:
         logger.error("No agents configured in agents.yaml")
@@ -129,7 +149,7 @@ async def main() -> None:
     async with Client.connect(config.broker_url) as client:
         tasks = [
             asyncio.create_task(
-                _agent_loop(client, agent_cfg, gamma, clob),
+                _agent_loop(client, agent_cfg, gamma, clob, coinbase),
                 name=f"scheduler-{agent_cfg.name}",
             )
             for agent_cfg in agents
@@ -148,6 +168,7 @@ async def main() -> None:
         finally:
             await gamma.close()
             await clob.close()
+            await coinbase.close()
 
 
 if __name__ == "__main__":

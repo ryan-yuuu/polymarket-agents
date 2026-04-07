@@ -10,4 +10,5 @@ dependencies = [
     "websockets>=13.0",
     "pydantic-settings>=2.0",
     "sympy>=1.13",
+    "httpx>=0.28.1",
 ]

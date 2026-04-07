@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -95,3 +96,47 @@ class MarketPosition(BaseModel):
     down_token_id: str = ""
     up: Position | None = None
     down: Position | None = None
+
+
+# ---------------------------------------------------------------------------
+# Candlestick / OHLCV models
+# ---------------------------------------------------------------------------
+
+
+class Candle(BaseModel):
+    """A single OHLCV candlestick."""
+
+    time: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+
+@dataclass(frozen=True)
+class CandleLayer:
+    """Static config for one candlestick granularity layer."""
+
+    granularity: int  # seconds per candle
+    start_minutes_ago: int
+    end_minutes_ago: int
+    label: str
+
+
+CANDLE_LAYERS: dict[Timeframe, list[CandleLayer]] = {
+    Timeframe.FIVE_MIN: [
+        CandleLayer(300, 120, 30, "5-min candles (2h ago -> 30min ago)"),
+        CandleLayer(60, 30, 0, "1-min candles (last 30 minutes)"),
+    ],
+    Timeframe.FIFTEEN_MIN: [
+        CandleLayer(900, 360, 120, "15-min candles (6h ago -> 2h ago)"),
+        CandleLayer(300, 120, 20, "5-min candles (2h ago -> 20min ago)"),
+        CandleLayer(60, 20, 0, "1-min candles (last 20 minutes)"),
+    ],
+    Timeframe.FOUR_HOUR: [
+        CandleLayer(3600, 1440, 360, "1-hour candles (24h ago -> 6h ago)"),
+        CandleLayer(900, 360, 30, "15-min candles (6h ago -> 30min ago)"),
+        CandleLayer(300, 30, 0, "5-min candles (last 30 minutes)"),
+    ],
+}

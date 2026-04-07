@@ -34,6 +34,13 @@ market end time.
 - The execution price is determined at the moment of the trade from live market \
 data, not from the prices shown in your prompt (which may be slightly stale).
 
+## Price History
+Your prompt may include recent BTC-USD candlestick data (OHLCV) at multiple \
+timeframes. Use this data for technical analysis — identify trends, support \
+and resistance levels, momentum, and volatility. The candles are presented as \
+CSV with headers: time,open,high,low,close,volume. Coarser timeframes provide \
+broader trend context; finer timeframes show recent price action.
+
 ## Your Objective
 Maximize your trading profit. Analyze the provided market data, consider \
 the probabilities implied by the prices, and decide whether to trade.
