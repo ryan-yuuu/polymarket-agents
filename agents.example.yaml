@@ -34,3 +34,13 @@ agents:
   #   timeframe: "15m"
   #   poll_interval_seconds: 60
   #   initial_balance: 10000.0
+
+  # Custom system prompt (defaults to .calfkit_agents/default.md):
+  # - name: "aggressive-trader"
+  #   model:
+  #     provider: openai
+  #     model_name: "gpt-5-mini"
+  #   timeframe: "5m"
+  #   poll_interval_seconds: 30
+  #   initial_balance: 10000.0
+  #   system_prompt_file: ".calfkit_agents/aggressive.md"

@@ -177,7 +177,7 @@ Each agent in `agents.yaml` supports:
 | `poll_interval_seconds` | `60` | Seconds between market data prompts |
 | `initial_balance` | `10000.0` | Starting paper trading balance (omit when `resume: true`) |
 | `resume` | `false` | Resume from the latest saved session instead of starting fresh |
-| `system_prompt` | — | Override the default trading system prompt |
+| `system_prompt_file` | — | Path to a `.md` file for the system prompt (defaults to `.calfkit_agents/default.md`) |
 
 <br>
 
