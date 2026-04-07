@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-_CYCLE_TIMEOUT = 120  # seconds
+_CYCLE_TIMEOUT = 150  # seconds
 
 
 def _build_prompt(
