@@ -210,3 +210,5 @@ agents.yaml
 data/*.csv
 
 .claude/
+
+.private/

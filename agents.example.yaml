@@ -35,7 +35,7 @@ agents:
   #   poll_interval_seconds: 60
   #   initial_balance: 10000.0
 
-  # Custom system prompt (defaults to .calfkit_agents/default.md):
+  # Custom system prompt:
   # - name: "aggressive-trader"
   #   model:
   #     provider: openai
