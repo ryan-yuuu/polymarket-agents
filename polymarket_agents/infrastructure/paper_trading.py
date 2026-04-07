@@ -253,7 +253,13 @@ class PaperTradingEngine:
         ]
         records: list[TradeRecord] = []
         for slug, mp in to_settle:
-            winner = await resolve_fn(slug)
+            try:
+                winner = await resolve_fn(slug)
+            except Exception:
+                logger.exception(
+                    "Failed to resolve market %s, skipping settlement", slug
+                )
+                continue
             if winner is None:
                 logger.warning(
                     "Market %s expired but not yet resolved, skipping", slug

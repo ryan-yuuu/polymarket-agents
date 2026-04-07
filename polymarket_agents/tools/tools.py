@@ -181,7 +181,8 @@ async def place_order(
             up_token_id=up_token_id,
             down_token_id=down_token_id,
         )
-    except ValueError as e:
+    except Exception as e:
+        logger.exception("execute_trade failed for %s", agent_id)
         return json.dumps({"status": "error", "message": str(e)})
 
     for s in settlements:
@@ -241,10 +242,15 @@ async def get_portfolio(ctx: ToolContext) -> str:
         _engine.register_agent(agent_id, initial_balance, resume=resume)
         logger.info("Lazily registered wallet for agent '%s'", agent_id)
 
-    wallet, settlements = await _engine.settle_and_get_wallet(
-        agent_id,
-        _gamma.get_resolution,
-    )
+    try:
+        wallet, settlements = await _engine.settle_and_get_wallet(
+            agent_id,
+            _gamma.get_resolution,
+        )
+    except Exception:
+        logger.exception("settle_and_get_wallet failed for %s", agent_id)
+        wallet = _engine.get_wallet(agent_id)
+        settlements = []
 
     if wallet is None:
         return json.dumps(
