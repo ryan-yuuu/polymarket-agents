@@ -142,6 +142,12 @@ uv run python -m scripts.run_agents
 uv run python -m scripts.run_client
 ```
 
+To align the first prompt to the start of the next market window (useful when `poll_interval_seconds` matches the timeframe for one-trade-per-window setups):
+
+```bash
+uv run python -m scripts.run_client --align-start-to-window
+```
+
 The scheduler will begin discovering active BTC Up/Down markets, fetching prices, and sending prompts to your agents. Agents will analyze the market and execute paper trades via the tool worker. Trade logs are written to `data/`.
 
 To deploy only a specific agent, pass `--agent <name>` to the agent worker and scheduler:

@@ -8,16 +8,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 
 from calfkit import Client
 
-from polymarket_agents.config.loader import filter_agents, load_config, parse_agent_filter
+from polymarket_agents.config.loader import (
+    filter_agents,
+    load_config,
+    parse_cli_args,
+)
 from polymarket_agents.config.models import AgentConfig
 from polymarket_agents.domain.models import CANDLE_LAYERS, TokenPair
 from polymarket_agents.infrastructure.candle_format import format_candles_prompt
 from polymarket_agents.infrastructure.coinbase_client import CoinbaseKlinesClient
-from polymarket_agents.infrastructure.polymarket_client import ClobRestClient, GammaClient
+from polymarket_agents.infrastructure.polymarket_client import (
+    ClobRestClient,
+    GammaClient,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +33,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-_CYCLE_TIMEOUT = 150  # seconds
+_CYCLE_TIMEOUT = 300  # seconds
 
 
 def _build_prompt(
@@ -56,22 +64,39 @@ def _build_prompt(
     return "\n\n".join(parts)
 
 
+def _seconds_until_next_window(timeframe_seconds: int) -> float:
+    """Return seconds until the next window boundary, with a small buffer."""
+    now = time.time()
+    boundary = now - (now % timeframe_seconds) + timeframe_seconds
+    return max(boundary - now + 2, 0)  # +2s buffer for market availability
+
+
 async def _agent_loop(
     client: Client,
     agent_cfg: AgentConfig,
     gamma: GammaClient,
     clob: ClobRestClient,
     coinbase: CoinbaseKlinesClient,
+    *,
+    align_start_to_window: bool = False,
 ) -> None:
     """Polling loop for a single agent."""
     topic = f"agent.{agent_cfg.name}.input"
+    if align_start_to_window:
+        delay = _seconds_until_next_window(agent_cfg.timeframe.seconds)
+        logger.info("[%s] Waiting %.1fs for next window boundary", agent_cfg.name, delay)
+        await asyncio.sleep(delay)
 
     while True:
         try:
             # 1. Discover current active market
             markets = await gamma.find_active_markets(agent_cfg.timeframe, limit=1)
             if not markets:
-                logger.warning("[%s] No active %s markets found", agent_cfg.name, agent_cfg.timeframe.value)
+                logger.warning(
+                    "[%s] No active %s markets found",
+                    agent_cfg.name,
+                    agent_cfg.timeframe.value,
+                )
                 await asyncio.sleep(agent_cfg.poll_interval_seconds)
                 continue
 
@@ -93,10 +118,15 @@ async def _agent_loop(
                     candle_data = await coinbase.fetch_all_layers("BTC-USD", layers)
                     candle_section = format_candles_prompt(candle_data)
                 except Exception:
-                    logger.warning("[%s] Candle fetch failed, continuing without price history", agent_cfg.name)
+                    logger.warning(
+                        "[%s] Candle fetch failed, continuing without price history",
+                        agent_cfg.name,
+                    )
 
             # 4. Build prompt
-            prompt = _build_prompt(market, up_bid, up_ask, down_bid, down_ask, candle_section)
+            prompt = _build_prompt(
+                market, up_bid, up_ask, down_bid, down_ask, candle_section
+            )
 
             # 5. Dispatch to agent
             logger.info(
@@ -134,9 +164,9 @@ async def _agent_loop(
 
 
 async def main() -> None:
+    cli = parse_cli_args()
     config = load_config()
-    agent_filter = parse_agent_filter()
-    agents = filter_agents(config, agent_filter)
+    agents = filter_agents(config, cli.agent)
 
     gamma = GammaClient(base_url=config.market_data.gamma_api_url)
     clob = ClobRestClient(base_url=config.market_data.clob_api_url)
@@ -149,7 +179,14 @@ async def main() -> None:
     async with Client.connect(config.broker_url) as client:
         tasks = [
             asyncio.create_task(
-                _agent_loop(client, agent_cfg, gamma, clob, coinbase),
+                _agent_loop(
+                    client,
+                    agent_cfg,
+                    gamma,
+                    clob,
+                    coinbase,
+                    align_start_to_window=cli.align_start_to_window,
+                ),
                 name=f"scheduler-{agent_cfg.name}",
             )
             for agent_cfg in agents

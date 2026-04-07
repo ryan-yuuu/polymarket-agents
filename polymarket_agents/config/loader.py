@@ -19,12 +19,23 @@ def load_secrets() -> Secrets:
     return Secrets()  # type: ignore[call-arg]
 
 
-def parse_agent_filter() -> str | None:
-    """Parse an optional ``--agent <name>`` argument from the CLI."""
+def parse_cli_args() -> argparse.Namespace:
+    """Parse CLI arguments for the scheduler."""
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--agent", default=None)
+    parser.add_argument(
+        "--align-start-to-window",
+        action="store_true",
+        default=False,
+        help="On startup, wait until the next window boundary before polling.",
+    )
     args, _ = parser.parse_known_args()
-    return args.agent
+    return args
+
+
+def parse_agent_filter() -> str | None:
+    """Parse an optional ``--agent <name>`` argument from the CLI."""
+    return parse_cli_args().agent
 
 
 def filter_agents(config: AppConfig, agent_name: str | None) -> list[AgentConfig]:
