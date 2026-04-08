@@ -62,7 +62,7 @@ class GammaClient:
                 break
 
             if attempt < 3:
-                delay = 2 ** attempt  # 1s, 2s, 4s
+                delay = 15 * (2 ** attempt)  # 15s, 30s, 60s
                 logger.info(
                     "priceToBeat not yet available for %s, retrying in %ds (attempt %d/3)",
                     slug,
