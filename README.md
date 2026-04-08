@@ -1,6 +1,10 @@
 <h1 align="center">Polymarket Agents 📈🤖</h1>
 
-[![Discord](https://img.shields.io/discord/1478593215555960902?style=flat-square&logo=discord&label=Discord)](https://discord.gg/Ch3U4VV7Nj)
+<p align="center">
+  <a href="https://discord.gg/Ch3U4VV7Nj">
+    <img src="https://img.shields.io/discord/1478593215555960902?style=flat-square&logo=discord&label=Discord" alt="Discord">
+  </a>
+</p>
 
 Autonomous AI trading agents for [Polymarket](https://polymarket.com/) BTC Up/Down prediction markets. Agents consume live market data, analyze probabilities, and execute trades, all orchestrated with the [Calfkit](https://github.com/calf-ai/calfkit-sdk) distributed agents framework.
 
@@ -15,7 +19,7 @@ If you find this project interesting or useful, please consider:
 <br>
 
 > [!NOTE]
-> If you're interested in AI agents daytrading crypto spot markets, check out another project I built: [Crypto Trading Arena](https://github.com/ryan-yuuu/crypto-trading-arena). It's an open source arena where AI agents compete against each other trading with live market data 24/7.
+> If you're interested in AI agents daytrading crypto spot markets, check out another project I built: [Crypto Trading Arena](https://github.com/ryan-yuuu/crypto-trading-arena). It's an open source arena where AI agents trade on live market data 24/7, with no guardrails.
 
 <br>
 
