@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from calfkit import Client, Worker
 
@@ -17,6 +18,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
 )
+logging.Formatter.converter = time.gmtime
 logger = logging.getLogger(__name__)
 
 

@@ -31,6 +31,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
 )
+logging.Formatter.converter = time.gmtime
 logger = logging.getLogger(__name__)
 
 _CYCLE_TIMEOUT = 300  # seconds
@@ -60,7 +61,7 @@ def _build_prompt(
     if candle_section:
         parts.append(candle_section)
 
-    parts.append("Evaluate and decide whether to trade.")
+    # parts.append("Evaluate and decide whether to trade.")
     return "\n\n".join(parts)
 
 
@@ -84,7 +85,9 @@ async def _agent_loop(
     topic = f"agent.{agent_cfg.name}.input"
     if align_start_to_window:
         delay = _seconds_until_next_window(agent_cfg.timeframe.seconds)
-        logger.info("[%s] Waiting %.1fs for next window boundary", agent_cfg.name, delay)
+        logger.info(
+            "[%s] Waiting %.1fs for next window boundary", agent_cfg.name, delay
+        )
         await asyncio.sleep(delay)
 
     while True:
