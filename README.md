@@ -105,7 +105,7 @@ market_data:
 agents:
   - name: "btc-trader-15m"
     model:
-      provider: openai          # "openai" or "anthropic"
+      provider: openai          # "openai", "openai-chat", or "anthropic"
       model_name: "gpt-5-mini"
     timeframe: "15m"            # "5m", "15m", or "4h"
     poll_interval_seconds: 60
@@ -179,9 +179,10 @@ Each agent in `agents.yaml` supports:
 | Field | Default | Description |
 |---|---|---|
 | `name` | `"btc-trader"` | Unique agent identifier |
-| `model.provider` | `"openai"` | `"openai"` or `"anthropic"` |
+| `model.provider` | `"openai"` | `"openai"` (Responses API), `"openai-chat"` (Chat Completions), or `"anthropic"` |
 | `model.model_name` | `"gpt-5-mini"` | Model ID passed to the provider |
 | `model.reasoning_effort` | — | OpenAI only: `"minimal"`, `"low"`, `"medium"`, or `"high"` |
+| `model.reasoning_summary` | — | OpenAI only: `"detailed"`, `"concise"`, or `"auto"` |
 | `model.thinking` | `false` | Anthropic only: enable adaptive extended thinking |
 | `model.api_key` | — | Per-agent API key override (falls back to `.env`) |
 | `timeframe` | `"15m"` | Market timeframe: `"5m"`, `"15m"`, or `"4h"` |

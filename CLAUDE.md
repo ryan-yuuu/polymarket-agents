@@ -32,7 +32,7 @@ Three-service system orchestrated via [CalfKit](https://github.com/calf-ai/calfk
 
 1. **Scheduler** (`scripts/run_client.py`) — Discovers active BTC Up/Down markets via Gamma API, fetches live prices from CLOB REST API, fetches BTC-USD candlesticks from Coinbase, builds prompts with market context, and publishes to agent topics. Polls on a configurable interval with optional clock-alignment.
 
-2. **Agent Worker** (`scripts/run_agents.py`) — CalfKit Worker nodes running LLM agents. Each agent subscribes to its topic, receives market prompts, reasons with tools (place_order, get_portfolio, calculator), and executes trades. Supports OpenAI and Anthropic models with per-agent config.
+2. **Agent Worker** (`scripts/run_agents.py`) — CalfKit Worker nodes running LLM agents. Each agent subscribes to its topic, receives market prompts, reasons with tools (place_order, get_portfolio, calculator), and executes trades. Supports OpenAI (Responses API by default, Chat Completions via `openai-chat`) and Anthropic models with per-agent config.
 
 3. **Tool Worker** (`scripts/run_tools.py`) — CalfKit Worker running tool nodes. Handles paper trading execution, portfolio management, and math calculations. Uses module-level globals (`_engine`, `_clob`, `_gamma` in `tools/tools.py`) initialized at startup.
 

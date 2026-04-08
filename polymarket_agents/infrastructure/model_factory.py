@@ -19,7 +19,7 @@ def create_model_client(
     """Factory: dispatch on config.provider to create the right model client."""
     secrets = secrets or Secrets()  # type: ignore[call-arg]
 
-    if config.provider in ("openai", "openai-responses"):
+    if config.provider in ("openai", "openai-chat"):
         api_key = config.api_key or secrets.openai_api_key or None
         shared_kwargs = dict(
             model_name=config.model_name,
@@ -28,12 +28,12 @@ def create_model_client(
             max_tokens=config.max_tokens,
             reasoning_effort=config.reasoning_effort,
         )
-        if config.provider == "openai-responses":
-            return OpenAIResponsesModelClient(
-                **shared_kwargs,
-                reasoning_summary=config.reasoning_summary,
-            )
-        return OpenAIModelClient(**shared_kwargs)
+        if config.provider == "openai-chat":
+            return OpenAIModelClient(**shared_kwargs)
+        return OpenAIResponsesModelClient(
+            **shared_kwargs,
+            reasoning_summary=config.reasoning_summary,
+        )
     elif config.provider == "anthropic":
         api_key = config.api_key or secrets.anthropic_api_key or None
         thinking = {"type": "adaptive"} if config.thinking else None
