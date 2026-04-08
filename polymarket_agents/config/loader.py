@@ -22,7 +22,7 @@ def load_secrets() -> Secrets:
 def parse_cli_args() -> argparse.Namespace:
     """Parse CLI arguments for the scheduler."""
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--agent", nargs="*", default=None)
+    parser.add_argument("--agent", action="extend", nargs="+", default=None)
     parser.add_argument(
         "--align-start-to-window",
         action="store_true",
