@@ -65,10 +65,10 @@ def _build_prompt(
     return "\n\n".join(parts)
 
 
-def _seconds_until_next_window(timeframe_seconds: int) -> float:
-    """Return seconds until the next window boundary, with a small buffer."""
+def _seconds_until_next_tick(interval_seconds: int) -> float:
+    """Return seconds until the next clock-aligned tick, with a small buffer."""
     now = time.time()
-    boundary = now - (now % timeframe_seconds) + timeframe_seconds
+    boundary = now - (now % interval_seconds) + interval_seconds
     return max(boundary - now + 2, 0)  # +2s buffer for market availability
 
 
@@ -84,7 +84,7 @@ async def _agent_loop(
     """Polling loop for a single agent."""
     topic = f"agent.{agent_cfg.name}.input"
     if align_start_to_window:
-        delay = _seconds_until_next_window(agent_cfg.timeframe.seconds)
+        delay = _seconds_until_next_tick(agent_cfg.timeframe.seconds)
         logger.info(
             "[%s] Waiting %.1fs for next window boundary", agent_cfg.name, delay
         )
@@ -100,7 +100,7 @@ async def _agent_loop(
                     agent_cfg.name,
                     agent_cfg.timeframe.value,
                 )
-                await asyncio.sleep(agent_cfg.poll_interval_seconds)
+                await asyncio.sleep(_seconds_until_next_tick(agent_cfg.poll_interval_seconds))
                 continue
 
             market = markets[0]
@@ -172,7 +172,9 @@ async def _agent_loop(
         except Exception:
             logger.exception("[%s] Cycle error", agent_cfg.name)
 
-        await asyncio.sleep(agent_cfg.poll_interval_seconds)
+        delay = _seconds_until_next_tick(agent_cfg.poll_interval_seconds)
+        logger.info("[%s] Next cycle in %.1fs", agent_cfg.name, delay)
+        await asyncio.sleep(delay)
 
 
 async def main() -> None:
