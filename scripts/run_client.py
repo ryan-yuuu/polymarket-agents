@@ -165,7 +165,7 @@ async def _agent_loop(
                 timeout=agent_cfg.cycle_timeout_seconds,
             )
 
-            logger.info("[%s] Response: %s", agent_cfg.name, str(result))
+            logger.info("[%s] Response: %s", agent_cfg.name, result.output)
 
         except asyncio.CancelledError:
             return

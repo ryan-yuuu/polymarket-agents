@@ -225,8 +225,8 @@ async def place_order(
             "direction": direction,
             "side": side,
             "size": size,
-            "execution_price": round(execution_price, 4),
-            "cost": round(record.cost, 4),
+            "execution_price": round(execution_price, 2),
+            "cost": round(record.cost, 2),
             "balance_after": round(record.balance_after, 2),
             "settlements": len(settlements),
         }

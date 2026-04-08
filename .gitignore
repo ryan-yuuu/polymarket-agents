@@ -208,6 +208,7 @@ __marimo__/
 
 agents.yaml
 data/*.csv
+data/archive/*.csv
 
 .claude/
 
