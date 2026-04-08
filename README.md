@@ -180,6 +180,7 @@ Each agent in `agents.yaml` supports:
 | `model.api_key` | — | Per-agent API key override (falls back to `.env`) |
 | `timeframe` | `"15m"` | Market timeframe: `"5m"`, `"15m"`, or `"4h"` |
 | `poll_interval_seconds` | `60` | Seconds between market data prompts |
+| `cycle_timeout_seconds` | `300` | Max seconds to wait for an agent response per cycle |
 | `initial_balance` | `10000.0` | Starting paper trading balance (omit when `resume: true`) |
 | `resume` | `false` | Resume from the latest saved session instead of starting fresh |
 | `system_prompt_file` | — | Path to a `.md` file for the system prompt (defaults to `.calfkit_agents/default.md`) |

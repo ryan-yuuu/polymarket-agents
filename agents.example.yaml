@@ -16,6 +16,7 @@ agents:
     timeframe: "15m"
     poll_interval_seconds: 60
     initial_balance: 10000.0
+    cycle_timeout_seconds: 300  # max seconds to wait for agent response per cycle
     # resume: false  # default — starts a fresh session each time
 
   # To resume a previous session (picks up latest CSV, ignores initial_balance):

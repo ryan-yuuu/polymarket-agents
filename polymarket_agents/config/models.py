@@ -25,6 +25,7 @@ class AgentConfig(BaseModel):
     poll_interval_seconds: int = 60
     initial_balance: float | None = None
     resume: bool = False
+    cycle_timeout_seconds: int = 300
     system_prompt_file: str | None = (
         None  # path to .md file; defaults to .calfkit_agents/default.md
     )

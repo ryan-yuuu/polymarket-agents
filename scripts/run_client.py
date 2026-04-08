@@ -34,8 +34,6 @@ logging.basicConfig(
 logging.Formatter.converter = time.gmtime
 logger = logging.getLogger(__name__)
 
-_CYCLE_TIMEOUT = 300  # seconds
-
 
 def _build_prompt(
     market: TokenPair,
@@ -164,7 +162,7 @@ async def _agent_loop(
                     "initial_balance": agent_cfg.initial_balance,
                     "resume": agent_cfg.resume,
                 },
-                timeout=_CYCLE_TIMEOUT,
+                timeout=agent_cfg.cycle_timeout_seconds,
             )
 
             logger.info("[%s] Response: %s", agent_cfg.name, str(result))
