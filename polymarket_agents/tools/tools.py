@@ -1,11 +1,12 @@
 """CalfKit tool definitions: place_order and get_portfolio.
 
-Module-level singletons (_engine, _ws_stream, _gamma) are injected at startup
+Module-level singletons (_engine, _clob, _gamma) are injected at startup
 by the tool worker via init_tools().
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -15,26 +16,25 @@ from calfkit import ToolContext, agent_tool
 
 from polymarket_agents.domain.models import Direction, OrderSide
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
-from polymarket_agents.infrastructure.polymarket_client import GammaClient
-from polymarket_agents.infrastructure.polymarket_ws import MarketDataStream
+from polymarket_agents.infrastructure.polymarket_client import ClobRestClient, GammaClient
 
 logger = logging.getLogger(__name__)
 
 # Injected by run_tools.py at startup
 _engine: PaperTradingEngine | None = None
-_ws_stream: MarketDataStream | None = None
+_clob: ClobRestClient | None = None
 _gamma: GammaClient | None = None
 
 
 def init_tools(
     engine: PaperTradingEngine,
-    ws_stream: MarketDataStream,
+    clob: ClobRestClient,
     gamma: GammaClient,
 ) -> None:
     """Inject runtime dependencies into the tools module."""
-    global _engine, _ws_stream, _gamma
+    global _engine, _clob, _gamma
     _engine = engine
-    _ws_stream = ws_stream
+    _clob = clob
     _gamma = gamma
 
 
@@ -102,14 +102,16 @@ async def place_order(
         JSON with execution details: status, direction, side, size,
         execution_price, cost, and balance_after.
     """
-    if _engine is None or _ws_stream is None or _gamma is None:
+    if _engine is None or _clob is None or _gamma is None:
         raise RuntimeError("Tools not initialized — call init_tools() first")
 
     if size <= 0:
+        logger.warning("place_order rejected: size=%.4f is not positive", size)
         return json.dumps({"status": "error", "message": "Size must be positive."})
 
     agent_id = ctx.agent_name or "unknown"
     if _engine.get_wallet(agent_id) is None:
+        logger.warning("place_order rejected: wallet not initialized for agent '%s'", agent_id)
         return json.dumps(
             {
                 "status": "error",
@@ -123,26 +125,25 @@ async def place_order(
     down_token_id = deps.get("down_token_id", "")
     market_slug = deps.get("market_slug", "")
 
-    # Lazy-subscribe to token IDs for new markets
-    await _ws_stream.subscribe([up_token_id, down_token_id])
-
     direction_enum = Direction(direction.lower())
     order_side = OrderSide(side.lower())
 
     # Map direction to the correct token
     token_id = up_token_id if direction_enum == Direction.UP else down_token_id
 
-    # Determine execution price from live WebSocket data
-    if order_side == OrderSide.BUY:
-        execution_price = _ws_stream.get_ask(token_id)
-    else:
-        execution_price = _ws_stream.get_bid(token_id)
-
-    # Fallback to mid price if bid/ask not yet available
-    if execution_price is None:
-        execution_price = _ws_stream.get_mid(token_id)
+    # Fetch execution price from CLOB REST API
+    rest_side = "buy" if order_side == OrderSide.BUY else "sell"
+    try:
+        execution_price = await _clob.get_price(token_id, rest_side)
+    except Exception:
+        logger.exception("CLOB REST price fetch failed for token=%s side=%s", token_id, rest_side)
+        execution_price = 0.0
 
     if execution_price is None or execution_price <= 0:
+        logger.warning(
+            "place_order rejected: no price data for %s token (token_id=%s)",
+            direction, token_id,
+        )
         return json.dumps(
             {
                 "status": "error",
@@ -161,6 +162,9 @@ async def place_order(
 
     # Reject trades on expired markets
     if end_date <= datetime.now(timezone.utc):
+        logger.warning(
+            "place_order rejected: market '%s' expired at %s", market_slug, end_date,
+        )
         return json.dumps(
             {
                 "status": "error",
@@ -270,7 +274,9 @@ async def get_portfolio(ctx: ToolContext) -> str:
         )
 
     now = datetime.now(timezone.utc)
-    holdings = []
+
+    # Collect active positions and their token IDs for batch price fetching
+    active_positions: list[tuple[str, str, object, str]] = []  # (slug, direction, pos, token_id)
     for slug, mp in wallet.positions.items():
         # Hide expired-but-unresolved positions
         if mp.end_date < now:
@@ -279,29 +285,48 @@ async def get_portfolio(ctx: ToolContext) -> str:
         for direction_str, pos in [("up", mp.up), ("down", mp.down)]:
             if pos is None or pos.size <= 0:
                 continue
-
             token_id = mp.up_token_id if direction_str == "up" else mp.down_token_id
+            if token_id:
+                active_positions.append((slug, direction_str, pos, token_id))
 
-            current_mid = None
-            if token_id and _ws_stream:
-                current_mid = _ws_stream.get_mid(token_id)
-
-            unrealized_pnl = 0.0
-            if current_mid is not None:
-                unrealized_pnl = (current_mid - pos.avg_entry_price) * pos.size
-
-            holdings.append(
-                {
-                    "market_slug": slug,
-                    "direction": direction_str,
-                    "size": round(pos.size, 4),
-                    "avg_entry_price": round(pos.avg_entry_price, 4),
-                    "current_mid_price": (
-                        round(current_mid, 4) if current_mid else None
-                    ),
-                    "unrealized_pnl": round(unrealized_pnl, 4),
-                }
+    # Fetch bid+ask for each position in parallel to compute mid prices
+    async def _fetch_mid(token_id: str) -> float | None:
+        try:
+            bid, ask = await asyncio.gather(
+                _clob.get_price(token_id, "sell"),
+                _clob.get_price(token_id, "buy"),
             )
+            if bid > 0 and ask > 0:
+                return (bid + ask) / 2.0
+            if ask > 0:
+                return ask
+            if bid > 0:
+                return bid
+            return None
+        except Exception:
+            logger.warning("Failed to fetch mid price for token=%s", token_id, exc_info=True)
+            return None
+
+    mid_prices = await asyncio.gather(*[_fetch_mid(t[3]) for t in active_positions])
+
+    holdings = []
+    for (slug, direction_str, pos, _token_id), current_mid in zip(active_positions, mid_prices):
+        unrealized_pnl = 0.0
+        if current_mid is not None:
+            unrealized_pnl = (current_mid - pos.avg_entry_price) * pos.size
+
+        holdings.append(
+            {
+                "market_slug": slug,
+                "direction": direction_str,
+                "size": round(pos.size, 4),
+                "avg_entry_price": round(pos.avg_entry_price, 4),
+                "current_mid_price": (
+                    round(current_mid, 4) if current_mid else None
+                ),
+                "unrealized_pnl": round(unrealized_pnl, 4),
+            }
+        )
 
     return json.dumps(
         {

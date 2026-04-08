@@ -1,6 +1,6 @@
 """Tool worker entry point.
 
-Owns the WebSocket connection for live bid/ask and the paper trading engine.
+Owns the CLOB REST client for live bid/ask and the paper trading engine.
 Serves place_order and get_portfolio tools to agents via Kafka.
 """
 
@@ -13,8 +13,7 @@ from calfkit import Client, Worker
 
 from polymarket_agents.config.loader import load_config
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
-from polymarket_agents.infrastructure.polymarket_client import GammaClient
-from polymarket_agents.infrastructure.polymarket_ws import MarketDataStream
+from polymarket_agents.infrastructure.polymarket_client import ClobRestClient, GammaClient
 from polymarket_agents.tools.tools import (
     calculator,
     get_portfolio,
@@ -35,15 +34,14 @@ async def main() -> None:
     # --- Paper Trading Engine (wallets registered lazily via get_portfolio) ---
     engine = PaperTradingEngine(data_dir="data")
 
-    # --- WebSocket Stream (subscriptions added lazily via place_order) ---
-    ws_stream = MarketDataStream(ws_url=config.market_data.ws_url)
-    await ws_stream.start()
+    # --- CLOB REST Client (stateless price lookups, no connection lifecycle) ---
+    clob = ClobRestClient(base_url=config.market_data.clob_api_url)
 
     # --- GammaClient (kept alive for resolution queries) ---
     gamma = GammaClient(base_url=config.market_data.gamma_api_url)
 
     # --- Inject into tools module ---
-    init_tools(engine, ws_stream, gamma)
+    init_tools(engine, clob, gamma)
 
     # --- Start Worker ---
     async with Client.connect(config.broker_url) as client:
@@ -52,7 +50,7 @@ async def main() -> None:
         try:
             await worker.run()
         finally:
-            await ws_stream.stop()
+            await clob.close()
             await gamma.close()
 
 
