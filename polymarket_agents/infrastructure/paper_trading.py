@@ -79,20 +79,27 @@ class AgentWallet:
             if existing and existing.size > 0:
                 total_size = existing.size + size
                 avg_price = (
-                    (existing.avg_entry_price * existing.size + price * size)
-                    / total_size
+                    existing.avg_entry_price * existing.size + price * size
+                ) / total_size
+                setattr(
+                    mp,
+                    side_attr,
+                    Position(
+                        direction=direction,
+                        size=total_size,
+                        avg_entry_price=avg_price,
+                    ),
                 )
-                setattr(mp, side_attr, Position(
-                    direction=direction,
-                    size=total_size,
-                    avg_entry_price=avg_price,
-                ))
             else:
-                setattr(mp, side_attr, Position(
-                    direction=direction,
-                    size=size,
-                    avg_entry_price=price,
-                ))
+                setattr(
+                    mp,
+                    side_attr,
+                    Position(
+                        direction=direction,
+                        size=size,
+                        avg_entry_price=price,
+                    ),
+                )
 
         elif order_side == OrderSide.SELL:
             if not existing or existing.size < size:
@@ -105,9 +112,7 @@ class AgentWallet:
             if remaining < 1e-9:
                 setattr(mp, side_attr, None)
             else:
-                setattr(mp, side_attr, existing.model_copy(
-                    update={"size": remaining}
-                ))
+                setattr(mp, side_attr, existing.model_copy(update={"size": remaining}))
 
         # Clean up empty MarketPositions
         if mp.up is None and mp.down is None:
@@ -117,7 +122,9 @@ class AgentWallet:
             timestamp=datetime.now(timezone.utc),
             agent_id=self.agent_id,
             market_slug=market_slug,
-            end_date=mp.end_date.isoformat() if market_slug in self.positions else (end_date or datetime.now(timezone.utc)).isoformat(),
+            end_date=mp.end_date.isoformat()
+            if market_slug in self.positions
+            else (end_date or datetime.now(timezone.utc)).isoformat(),
             direction=direction,
             order_side=order_side,
             size=size,
@@ -167,9 +174,7 @@ class PaperTradingEngine:
             )
         else:
             if initial_balance is None:
-                raise ValueError(
-                    "initial_balance is required when resume=False"
-                )
+                raise ValueError("initial_balance is required when resume=False")
             wallet = AgentWallet(agent_id, initial_balance)
             epoch = int(datetime.now(timezone.utc).timestamp())
             csv_path = self._data_dir / f"{agent_id}.{epoch}.trades.csv"
@@ -215,7 +220,11 @@ class PaperTradingEngine:
                     self._append_csv(agent_id, s)
 
             record = wallet.apply_trade(
-                direction, order_side, size, execution_price, market_slug,
+                direction,
+                order_side,
+                size,
+                execution_price,
+                market_slug,
                 end_date=end_date,
                 up_token_id=up_token_id,
                 down_token_id=down_token_id,
@@ -248,8 +257,7 @@ class PaperTradingEngine:
     ) -> list[TradeRecord]:
         now = datetime.now(timezone.utc)
         to_settle = [
-            (slug, mp) for slug, mp in wallet.positions.items()
-            if mp.end_date < now
+            (slug, mp) for slug, mp in wallet.positions.items() if mp.end_date < now
         ]
         records: list[TradeRecord] = []
         for slug, mp in to_settle:
@@ -261,9 +269,7 @@ class PaperTradingEngine:
                 )
                 continue
             if winner is None:
-                logger.warning(
-                    "Market %s expired but not yet resolved, skipping", slug
-                )
+                logger.warning("Market %s expired but not yet resolved, skipping", slug)
                 continue
             # Settle each side
             for direction_str, pos in [("up", mp.up), ("down", mp.down)]:
@@ -313,9 +319,7 @@ class PaperTradingEngine:
                 raise ValueError(f"CSV is empty: {csv_path}")
             raw = row.get("initial_balance")
             if raw is None or raw == "":
-                raise ValueError(
-                    f"CSV missing initial_balance column: {csv_path}"
-                )
+                raise ValueError(f"CSV missing initial_balance column: {csv_path}")
             return float(raw)
 
     def _append_csv(self, agent_id: str, record: TradeRecord) -> None:
@@ -326,19 +330,21 @@ class PaperTradingEngine:
             writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS)
             if write_header:
                 writer.writeheader()
-            writer.writerow({
-                "timestamp": record.timestamp.isoformat(),
-                "agent_id": record.agent_id,
-                "market_slug": record.market_slug,
-                "end_date": record.end_date,
-                "direction": record.direction.value,
-                "order_side": record.order_side.value,
-                "size": record.size,
-                "price": record.price,
-                "cost": record.cost,
-                "balance_after": record.balance_after,
-                "initial_balance": wallet.initial_balance,
-            })
+            writer.writerow(
+                {
+                    "timestamp": record.timestamp.isoformat(),
+                    "agent_id": record.agent_id,
+                    "market_slug": record.market_slug,
+                    "end_date": record.end_date,
+                    "direction": record.direction.value,
+                    "order_side": record.order_side.value,
+                    "size": record.size,
+                    "price": record.price,
+                    "cost": record.cost,
+                    "balance_after": record.balance_after,
+                    "initial_balance": wallet.initial_balance,
+                }
+            )
 
     def _replay_trades(self, wallet: AgentWallet, csv_path: Path) -> None:
         with open(csv_path, newline="") as f:
@@ -347,9 +353,7 @@ class PaperTradingEngine:
                 try:
                     end_date_str = row.get("end_date", "")
                     end_date = (
-                        datetime.fromisoformat(end_date_str)
-                        if end_date_str
-                        else None
+                        datetime.fromisoformat(end_date_str) if end_date_str else None
                     )
                     wallet.apply_trade(
                         direction=Direction(row["direction"]),

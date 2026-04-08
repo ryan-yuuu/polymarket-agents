@@ -158,7 +158,11 @@ class MarketDataStream:
             asks = msg.get("asks", [])
             best_bid = float(bids[0]["price"]) if bids else 0.0
             best_ask = float(asks[0]["price"]) if asks else 0.0
-            mid = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask > 0 else max(best_bid, best_ask)
+            mid = (
+                (best_bid + best_ask) / 2
+                if best_bid > 0 and best_ask > 0
+                else max(best_bid, best_ask)
+            )
             self._cache[token_id] = PriceSnapshot(
                 token_id=token_id,
                 best_bid=best_bid,
@@ -174,7 +178,11 @@ class MarketDataStream:
                     continue
                 best_bid = float(change.get("best_bid", 0))
                 best_ask = float(change.get("best_ask", 0))
-                mid = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask > 0 else max(best_bid, best_ask)
+                mid = (
+                    (best_bid + best_ask) / 2
+                    if best_bid > 0 and best_ask > 0
+                    else max(best_bid, best_ask)
+                )
                 self._cache[token_id] = PriceSnapshot(
                     token_id=token_id,
                     best_bid=best_bid,

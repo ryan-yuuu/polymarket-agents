@@ -25,7 +25,9 @@ class AgentConfig(BaseModel):
     poll_interval_seconds: int = 60
     initial_balance: float | None = None
     resume: bool = False
-    system_prompt_file: str | None = None  # path to .md file; defaults to .calfkit_agents/default.md
+    system_prompt_file: str | None = (
+        None  # path to .md file; defaults to .calfkit_agents/default.md
+    )
 
     @model_validator(mode="after")
     def _validate_resume_balance(self) -> AgentConfig:

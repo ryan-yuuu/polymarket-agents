@@ -38,9 +38,7 @@ class CoinbaseKlinesClient:
     def __init__(self, base_url: str = _BASE_URL):
         self._client = httpx.AsyncClient(base_url=base_url, timeout=15.0)
 
-    async def fetch_candles(
-        self, product_id: str, layer: CandleLayer
-    ) -> list[Candle]:
+    async def fetch_candles(self, product_id: str, layer: CandleLayer) -> list[Candle]:
         """Fetch candles for a single layer."""
         now = time()
         start = int(now - layer.start_minutes_ago * 60)
@@ -80,9 +78,7 @@ class CoinbaseKlinesClient:
         data: dict[CandleLayer, list[Candle]] = {}
         for layer, result in zip(layers, results):
             if isinstance(result, Exception):
-                logger.warning(
-                    "Candle layer %s failed: %s", layer.label, result
-                )
+                logger.warning("Candle layer %s failed: %s", layer.label, result)
                 data[layer] = []
             else:
                 data[layer] = result
