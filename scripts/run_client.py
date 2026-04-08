@@ -132,14 +132,23 @@ async def _agent_loop(
             )
 
             # 5. Dispatch to agent
+            now = datetime.now(timezone.utc)
+            time_left = market.end_date - now
+            hours, remainder = divmod(int(time_left.total_seconds()), 3600)
+            minutes, seconds = divmod(remainder, 60)
             logger.info(
-                "[%s] Sending prompt — %s | Up: $%.4f/$%.4f | Down: $%.4f/$%.4f",
+                "[%s] Sending prompt — %s | Up: $%.4f/$%.4f | Down: $%.4f/$%.4f | now: %s | ends: %s | remaining: %dh%02dm%02ds",
                 agent_cfg.name,
                 market.slug,
                 up_bid,
                 up_ask,
                 down_bid,
                 down_ask,
+                now.strftime("%H:%M:%S"),
+                market.end_date.strftime("%H:%M:%S"),
+                hours,
+                minutes,
+                seconds,
             )
 
             result = await client.execute_node(
@@ -156,7 +165,7 @@ async def _agent_loop(
                 timeout=_CYCLE_TIMEOUT,
             )
 
-            logger.info("[%s] Response: %s", agent_cfg.name, str(result)[:500])
+            logger.info("[%s] Response: %s", agent_cfg.name, str(result))
 
         except asyncio.CancelledError:
             return

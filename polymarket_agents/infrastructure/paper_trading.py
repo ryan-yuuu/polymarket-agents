@@ -54,7 +54,7 @@ class AgentWallet:
         up_token_id: str = "",
         down_token_id: str = "",
     ) -> TradeRecord:
-        cost = size * price
+        cost = round(size * price, 2)
 
         mp = self.positions.get(market_slug)
         if mp is None:
@@ -74,7 +74,7 @@ class AgentWallet:
                 raise ValueError(
                     f"Insufficient balance: need ${cost:.2f}, have ${self.balance:.2f}"
                 )
-            self.balance -= cost
+            self.balance = round(self.balance - cost, 2)
 
             if existing and existing.size > 0:
                 total_size = existing.size + size
@@ -100,7 +100,7 @@ class AgentWallet:
                 raise ValueError(
                     f"Insufficient position: want to sell {size}, have {available}"
                 )
-            self.balance += cost
+            self.balance = round(self.balance + cost, 2)
             remaining = existing.size - size
             if remaining < 1e-9:
                 setattr(mp, side_attr, None)
@@ -270,8 +270,8 @@ class PaperTradingEngine:
                 if pos is None or pos.size <= 0:
                     continue
                 payout_price = 1.0 if direction_str == winner else 0.0
-                payout = pos.size * payout_price
-                wallet.balance += payout
+                payout = round(pos.size * payout_price, 2)
+                wallet.balance = round(wallet.balance + payout, 2)
                 record = TradeRecord(
                     timestamp=now,
                     agent_id=wallet.agent_id,
