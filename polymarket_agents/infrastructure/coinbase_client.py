@@ -84,5 +84,36 @@ class CoinbaseKlinesClient:
                 data[layer] = result
         return data
 
+    async def fetch_open_price(self, product_id: str, timestamp: int) -> float | None:
+        """Fetch the BTC price at a specific Unix timestamp.
+
+        Fetches a broad range of 1-min candles around the target and filters
+        for the matching timestamp. This is more reliable than a targeted
+        single-candle query which can intermittently return empty results.
+        """
+        try:
+            resp = await self._client.get(
+                f"/products/{product_id}/candles",
+                params={
+                    "granularity": 60,
+                    "start": timestamp - 120,
+                    "end": timestamp + 120,
+                },
+            )
+            resp.raise_for_status()
+            rows = resp.json()
+            for row in rows:
+                if row[0] == timestamp:
+                    candle = _parse_coinbase_candle(row)
+                    return candle.open
+        except httpx.HTTPError:
+            logger.warning(
+                "Coinbase open price fetch failed for %s at %d",
+                product_id,
+                timestamp,
+                exc_info=True,
+            )
+        return None
+
     async def close(self) -> None:
         await self._client.aclose()

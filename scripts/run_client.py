@@ -92,9 +92,11 @@ async def _agent_loop(
 
     while True:
         try:
-            # 1. Discover current active market
-            markets = await gamma.find_active_markets(agent_cfg.timeframe, limit=1)
-            if not markets:
+            # 1. Discover current active market and price to beat
+            found_markets, price_to_beat = await gamma.find_active_markets(
+                agent_cfg.timeframe, limit=1
+            )
+            if not found_markets:
                 logger.warning(
                     "[%s] No active %s markets found",
                     agent_cfg.name,
@@ -105,9 +107,36 @@ async def _agent_loop(
                 )
                 continue
 
-            market = markets[0]
+            market = found_markets[0]
 
-            # 2. Fetch current bid/ask via CLOB REST
+            # 2. Fall back to Coinbase if Polymarket didn't provide a price
+            if price_to_beat is None:
+                # TODO: Coinbase is not the same data source as Polymarket
+                # (which uses Chainlink BTC/USD). The open price differs by
+                # ~$2-8 on average. Reconcile by using Chainlink directly.
+                window_ts = int(time.time())
+                window_ts -= window_ts % agent_cfg.timeframe.seconds
+                price_to_beat = await coinbase.fetch_open_price(
+                    "BTC-USD", window_ts
+                )
+                if price_to_beat is not None:
+                    logger.info(
+                        "[%s] Using Coinbase open price as fallback: %.2f",
+                        agent_cfg.name,
+                        price_to_beat,
+                    )
+
+            if price_to_beat is None:
+                logger.warning(
+                    "[%s] Could not resolve price to beat, skipping cycle",
+                    agent_cfg.name,
+                )
+                await asyncio.sleep(
+                    _seconds_until_next_tick(agent_cfg.poll_interval_seconds)
+                )
+                continue
+
+            # 3. Fetch current bid/ask via CLOB REST
             up_ask, up_bid, down_ask, down_bid = await asyncio.gather(
                 clob.get_price(market.up_token_id, "buy"),
                 clob.get_price(market.up_token_id, "sell"),
@@ -115,7 +144,7 @@ async def _agent_loop(
                 clob.get_price(market.down_token_id, "sell"),
             )
 
-            # 3. Fetch BTC price history
+            # 4. Fetch BTC price history
             candle_section = ""
             layers = CANDLE_LAYERS.get(agent_cfg.timeframe, [])
             if layers:
@@ -128,18 +157,18 @@ async def _agent_loop(
                         agent_cfg.name,
                     )
 
-            # 4. Build prompt
+            # 5. Build prompt
             prompt = _build_prompt(
                 market,
                 up_bid,
                 up_ask,
                 down_bid,
                 down_ask,
-                market.price_to_beat,
+                price_to_beat,
                 candle_section,
             )
 
-            # 5. Dispatch to agent
+            # 6. Dispatch to agent
             now = datetime.now(timezone.utc)
             time_left = market.end_date - now
             hours, remainder = divmod(int(time_left.total_seconds()), 3600)

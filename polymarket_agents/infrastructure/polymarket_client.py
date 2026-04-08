@@ -8,7 +8,6 @@ import time
 from datetime import datetime
 
 import asyncio
-
 import httpx
 
 from polymarket_agents.domain.models import Timeframe, TokenPair
@@ -24,69 +23,100 @@ class GammaClient:
 
     async def find_active_markets(
         self, timeframe: Timeframe, limit: int = 5
-    ) -> list[TokenPair]:
+    ) -> tuple[list[TokenPair], float | None]:
+        """Discover active markets and resolve the price to beat.
+
+        Returns (markets, price_to_beat). price_to_beat is None if neither
+        priceToBeat nor the previous window's finalPrice are available yet.
+        """
         now = int(time.time())
         window_ts = now - (now % timeframe.seconds)
         slug = f"btc-updown-{timeframe.value}-{window_ts}"
 
         logger.info("Querying events with slug: %s", slug)
 
-        # Retry loop: priceToBeat may not be available until the window starts
-        price_to_beat: float | None = None
-        event = None
+        # Fetch the current window's event
+        resp = await self._client.get("/events", params={"slug": slug})
+        resp.raise_for_status()
+        events = resp.json()
+
+        if not events:
+            logger.warning("No event found for slug: %s", slug)
+            return [], None
+
+        event = events[0] if isinstance(events, list) else events
+
+        # 1. Try priceToBeat from the current event metadata
+        price_to_beat = self._extract_metadata_float(event, "priceToBeat")
+        if price_to_beat is not None:
+            logger.info("Got priceToBeat from current event: %.2f", price_to_beat)
+
+        # 2. Fall back to finalPrice from the previous window
+        if price_to_beat is None:
+            prev_ts = window_ts - timeframe.seconds
+            prev_slug = f"btc-updown-{timeframe.value}-{prev_ts}"
+            price_to_beat = await self._fetch_final_price(prev_slug)
+
+        markets = event.get("markets", [])
+        results: list[TokenPair] = []
+        for market in markets[:limit]:
+            parsed = self._parse_market(market)
+            if parsed is not None:
+                results.append(parsed)
+        return results, price_to_beat
+
+    async def _fetch_final_price(self, slug: str) -> float | None:
+        """Fetch finalPrice from a previous window's eventMetadata with retries."""
         for attempt in range(4):
-            resp = await self._client.get("/events", params={"slug": slug})
-            resp.raise_for_status()
-            events = resp.json()
+            try:
+                resp = await self._client.get("/events", params={"slug": slug})
+                resp.raise_for_status()
+                events = resp.json()
+            except Exception:
+                logger.warning("Failed to fetch previous event %s", slug, exc_info=True)
+                events = []
 
-            if not events:
-                logger.warning("No event found for slug: %s", slug)
-                return []
-
-            event = events[0] if isinstance(events, list) else events
-            metadata = event.get("eventMetadata") or {}
-            if isinstance(metadata, str):
-                try:
-                    metadata = json.loads(metadata)
-                except (json.JSONDecodeError, TypeError):
-                    metadata = {}
-
-            raw_ptb = metadata.get("priceToBeat")
-            if raw_ptb is not None:
-                try:
-                    price_to_beat = float(raw_ptb)
-                except (ValueError, TypeError):
-                    pass
-
-            if price_to_beat is not None:
-                break
+            if events:
+                event = events[0] if isinstance(events, list) else events
+                final_price = self._extract_metadata_float(event, "finalPrice")
+                if final_price is not None:
+                    logger.info(
+                        "Got finalPrice from previous window %s: %.2f",
+                        slug,
+                        final_price,
+                    )
+                    return final_price
 
             if attempt < 3:
-                delay = 15 * (2 ** attempt)  # 15s, 30s, 60s
+                delay = 2 * (2 ** attempt)  # 2s, 4s, 8s
                 logger.info(
-                    "priceToBeat not yet available for %s, retrying in %ds (attempt %d/3)",
+                    "finalPrice not yet available for %s, retrying in %ds (attempt %d/3)",
                     slug,
                     delay,
                     attempt + 1,
                 )
                 await asyncio.sleep(delay)
 
-        if price_to_beat is None:
-            logger.warning(
-                "priceToBeat unavailable for %s after retries, skipping cycle", slug
-            )
-            return []
+        return None
 
-        markets = event.get("markets", [])
+    @staticmethod
+    def _extract_metadata_float(event: dict, key: str) -> float | None:
+        """Extract a float value from an event's eventMetadata."""
+        metadata = event.get("eventMetadata") or {}
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        raw = metadata.get(key)
+        if raw is not None:
+            try:
+                return float(raw)
+            except (ValueError, TypeError):
+                pass
+        return None
 
-        results: list[TokenPair] = []
-        for market in markets[:limit]:
-            parsed = self._parse_market(market, price_to_beat=price_to_beat)
-            if parsed is not None:
-                results.append(parsed)
-        return results
-
-    def _parse_market(self, raw: dict, *, price_to_beat: float) -> TokenPair | None:
+    def _parse_market(self, raw: dict) -> TokenPair | None:
         try:
             outcomes = raw.get("outcomes", [])
             if isinstance(outcomes, str):
@@ -125,7 +155,6 @@ class GammaClient:
                 up_token_id=up_token_id,
                 down_token_id=down_token_id,
                 end_date=end_date,
-                price_to_beat=price_to_beat,
             )
         except Exception:
             logger.exception("Failed to parse market: %s", raw.get("slug"))
