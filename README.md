@@ -1,5 +1,7 @@
 <h1 align="center">Polymarket Agents 📈🤖</h1>
 
+[![Discord](https://img.shields.io/discord/1478593215555960902?style=flat-square&logo=discord&label=Discord)](https://discord.gg/Ch3U4VV7Nj)
+
 Autonomous AI trading agents for [Polymarket](https://polymarket.com/) BTC Up/Down prediction markets. Agents consume live market data, analyze probabilities, and execute trades, all orchestrated with the [Calfkit](https://github.com/calf-ai/calfkit-sdk) distributed agents framework.
 
 <br>
