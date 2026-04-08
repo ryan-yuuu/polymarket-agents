@@ -100,7 +100,9 @@ async def _agent_loop(
                     agent_cfg.name,
                     agent_cfg.timeframe.value,
                 )
-                await asyncio.sleep(_seconds_until_next_tick(agent_cfg.poll_interval_seconds))
+                await asyncio.sleep(
+                    _seconds_until_next_tick(agent_cfg.poll_interval_seconds)
+                )
                 continue
 
             market = markets[0]

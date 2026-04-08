@@ -14,7 +14,10 @@ from calfkit import Client, Worker
 
 from polymarket_agents.config.loader import load_config
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
-from polymarket_agents.infrastructure.polymarket_client import ClobRestClient, GammaClient
+from polymarket_agents.infrastructure.polymarket_client import (
+    ClobRestClient,
+    GammaClient,
+)
 from polymarket_agents.tools.tools import (
     calculator,
     get_portfolio,

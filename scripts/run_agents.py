@@ -12,7 +12,12 @@ import time
 from calfkit import Client, Worker
 
 from polymarket_agents.agents.trader import build_trading_agent
-from polymarket_agents.config.loader import filter_agents, load_config, load_secrets, parse_agent_filter
+from polymarket_agents.config.loader import (
+    filter_agents,
+    load_config,
+    load_secrets,
+    parse_agent_filter,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,7 +51,9 @@ async def main() -> None:
 
     async with Client.connect(config.broker_url) as client:
         worker = Worker(client, nodes=agents)
-        logger.info("Agent worker starting with %d agents on %s", len(agents), config.broker_url)
+        logger.info(
+            "Agent worker starting with %d agents on %s", len(agents), config.broker_url
+        )
         await worker.run()
 
 
