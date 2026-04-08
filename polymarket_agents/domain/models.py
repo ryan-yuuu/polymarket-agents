@@ -52,6 +52,7 @@ class TokenPair(BaseModel):
     up_token_id: str
     down_token_id: str
     end_date: datetime
+    price_to_beat: float
 
 
 class PriceSnapshot(BaseModel):

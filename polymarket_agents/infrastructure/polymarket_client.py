@@ -7,6 +7,8 @@ import logging
 import time
 from datetime import datetime
 
+import asyncio
+
 import httpx
 
 from polymarket_agents.domain.models import Timeframe, TokenPair
@@ -28,25 +30,63 @@ class GammaClient:
         slug = f"btc-updown-{timeframe.value}-{window_ts}"
 
         logger.info("Querying events with slug: %s", slug)
-        resp = await self._client.get("/events", params={"slug": slug})
-        resp.raise_for_status()
-        events = resp.json()
 
-        if not events:
-            logger.warning("No event found for slug: %s", slug)
+        # Retry loop: priceToBeat may not be available until the window starts
+        price_to_beat: float | None = None
+        event = None
+        for attempt in range(4):
+            resp = await self._client.get("/events", params={"slug": slug})
+            resp.raise_for_status()
+            events = resp.json()
+
+            if not events:
+                logger.warning("No event found for slug: %s", slug)
+                return []
+
+            event = events[0] if isinstance(events, list) else events
+            metadata = event.get("eventMetadata") or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {}
+
+            raw_ptb = metadata.get("priceToBeat")
+            if raw_ptb is not None:
+                try:
+                    price_to_beat = float(raw_ptb)
+                except (ValueError, TypeError):
+                    pass
+
+            if price_to_beat is not None:
+                break
+
+            if attempt < 3:
+                delay = 2 ** attempt  # 1s, 2s, 4s
+                logger.info(
+                    "priceToBeat not yet available for %s, retrying in %ds (attempt %d/3)",
+                    slug,
+                    delay,
+                    attempt + 1,
+                )
+                await asyncio.sleep(delay)
+
+        if price_to_beat is None:
+            logger.warning(
+                "priceToBeat unavailable for %s after retries, skipping cycle", slug
+            )
             return []
 
-        event = events[0] if isinstance(events, list) else events
         markets = event.get("markets", [])
 
         results: list[TokenPair] = []
         for market in markets[:limit]:
-            parsed = self._parse_market(market)
+            parsed = self._parse_market(market, price_to_beat=price_to_beat)
             if parsed is not None:
                 results.append(parsed)
         return results
 
-    def _parse_market(self, raw: dict) -> TokenPair | None:
+    def _parse_market(self, raw: dict, *, price_to_beat: float) -> TokenPair | None:
         try:
             outcomes = raw.get("outcomes", [])
             if isinstance(outcomes, str):
@@ -85,6 +125,7 @@ class GammaClient:
                 up_token_id=up_token_id,
                 down_token_id=down_token_id,
                 end_date=end_date,
+                price_to_beat=price_to_beat,
             )
         except Exception:
             logger.exception("Failed to parse market: %s", raw.get("slug"))

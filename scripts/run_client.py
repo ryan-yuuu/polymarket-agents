@@ -41,6 +41,7 @@ def _build_prompt(
     up_ask: float,
     down_bid: float,
     down_ask: float,
+    price_to_beat: float,
     candle_section: str = "",
 ) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -50,6 +51,7 @@ def _build_prompt(
         f"It is {now} UTC.\n\n"
         f"CURRENT BTC UP/DOWN MARKET:\n"
         f"  Question: {market.question}\n"
+        f"  Price to Beat: ${price_to_beat:,.2f}\n"
         f"  Up:   bid ${up_bid:.4f} / ask ${up_ask:.4f}\n"
         f"  Down: bid ${down_bid:.4f} / ask ${down_ask:.4f}\n"
         f"  Market ends: {end} UTC\n\n"
@@ -128,7 +130,13 @@ async def _agent_loop(
 
             # 4. Build prompt
             prompt = _build_prompt(
-                market, up_bid, up_ask, down_bid, down_ask, candle_section
+                market,
+                up_bid,
+                up_ask,
+                down_bid,
+                down_ask,
+                market.price_to_beat,
+                candle_section,
             )
 
             # 5. Dispatch to agent
