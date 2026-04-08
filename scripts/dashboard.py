@@ -7,6 +7,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+ARCHIVE_DIR = DATA_DIR / "archive"
+
+
+def archive_file(path: Path) -> None:
+    """Move a trade CSV to the archive directory."""
+    ARCHIVE_DIR.mkdir(exist_ok=True)
+    path.rename(ARCHIVE_DIR / path.name)
 
 
 def parse_filename(name: str) -> tuple[str, datetime]:
@@ -74,7 +81,25 @@ def main():
     selected = files[selected_idx]
     df = load_trades(str(selected["path"]))
 
-    st.header(selected["agent_id"], divider=True)
+    @st.dialog("Archive session")
+    def confirm_archive_dialog(path: Path, agent_id: str):
+        st.warning(f"Archive **{agent_id}** session?")
+        col_yes, col_no = st.columns(2)
+        with col_yes:
+            if st.button("Confirm", use_container_width=True):
+                archive_file(path)
+                st.cache_data.clear()
+                st.rerun()
+        with col_no:
+            if st.button("Cancel", use_container_width=True):
+                st.rerun()
+
+    col_header, col_archive = st.columns([0.9, 0.1], vertical_alignment="center")
+    with col_header:
+        st.header(selected["agent_id"], divider=False)
+    with col_archive:
+        if st.button("Archive", key="archive_btn"):
+            confirm_archive_dialog(selected["path"], selected["agent_id"])
     st.caption(
         selected["session_date"].strftime("Session started %B %d, %Y at %H:%M UTC")
     )
