@@ -11,4 +11,8 @@ dependencies = [
     "pydantic-settings>=2.0",
     "sympy>=1.13",
     "httpx>=0.28.1",
+    "streamlit>=1.56.0",
+    "pandas>=2.3.3",
+    "plotly>=6.6.0",
+    "streamlit-autorefresh>=1.0.1",
 ]

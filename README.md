@@ -240,3 +240,20 @@ timestamp, agent_id, market_slug, end_date, direction, order_side, size, price, 
 
 Starting a new session (default) creates a fresh CSV, preserving old files. Setting `resume: true` on an agent finds its latest CSV, reads `initial_balance` from it, and replays all trades to restore the wallet.
 
+<br>
+
+## Dashboard
+
+A live Streamlit dashboard for monitoring agent performance. It auto-discovers all trade CSVs in `data/`, parses agent names and session dates from filenames, and plots account value over time based on resolved (sell) orders.
+
+```bash
+uv run streamlit run scripts/dashboard.py
+```
+
+Features:
+
+- **Sidebar navigation** — click between agent sessions, sorted newest-first
+- **Metrics row** — current balance, P&L ($ and %), settled predictions, buy count
+- **Account value chart** — interactive Plotly line chart plotting balance after each sell order, with a dashed reference line at the initial balance
+- **Auto-refresh** — toggle in the sidebar with configurable interval (10/15/30/60s) for live monitoring
+
