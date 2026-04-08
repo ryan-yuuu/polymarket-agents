@@ -88,17 +88,29 @@ def main():
     # Metrics row
     num_settled = len(sells)
     ev = pnl / num_settled if num_settled > 0 else 0.0
-    ev_str = f"-${abs(ev):.2f}" if ev < 0 else f"${ev:.2f}"
+    ev_str = f"-${abs(ev):.2f}" if ev < 0 else f"+${ev:.2f}"
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Balance", f"${current:.2f}")
-    pnl_str = f"-${abs(pnl):.2f}" if pnl < 0 else f"${pnl:.2f}"
-    c2.metric("P&L", pnl_str, f"{pnl_pct:+.1f}%")
-    c3.metric("Settled Trades", str(num_settled))
-    ev_html_color = "#09ab3b" if ev >= 0 else "#ff2b2b"
-    c4.markdown(
-        f"<p style='font-size:0.875rem;color:rgba(250,250,250,0.6);margin-bottom:0'>Expected Profit per Trade</p>"
-        f"<p style='font-size:2.25rem;font-weight:400;color:{ev_html_color};margin:0'>{ev_str}</p>",
-        unsafe_allow_html=True,
+    c1.metric(
+        "Balance",
+        f"${current:.2f}",
+        help="Current cash balance after all settled trades. Calculated from the balance_after column of the most recent sell order.",
+    )
+    pnl_str = f"-${abs(pnl):.2f}" if pnl < 0 else f"+${pnl:.2f}"
+    c2.metric(
+        "P&L",
+        pnl_str,
+        f"{pnl_pct:+.1f}%",
+        help="Profit & Loss. Dollar difference between the current balance and the initial balance. The percentage shows P&L relative to the initial balance.",
+    )
+    c3.metric(
+        "Settled Trades",
+        str(num_settled),
+        help="Number of settled trades.",
+    )
+    c4.metric(
+        "EV per Trade",
+        ev_str,
+        help="Expected profit per trade. Total P&L divided by the number of settled trades. Indicates average profitability across all resolved positions.",
     )
 
     if len(sells) == 0:

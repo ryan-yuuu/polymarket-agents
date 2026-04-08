@@ -81,7 +81,7 @@ wheels = [
 
 [[package]]
 name = "anthropic"
-version = "0.82.0"
+version = "0.91.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -93,9 +93,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6f/94/3766b5414d9e35687d518943a5b2ffb2696cd5c53248eec13fa1e8a5c73d/anthropic-0.82.0.tar.gz", hash = "sha256:e217340ba40cb9e24c88aacccc365334a6c3f46778855eca5000a6aa83d73dde", size = 533270, upload-time = "2026-02-18T20:25:16.844Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/b5/f39ae52ce035490217203581b9bfca8ca853c3a497961d0e5a2f091d0233/anthropic-0.91.0.tar.gz", hash = "sha256:a6afd894d55c26504e3d33909fb3f174d0db7d63369bfe9bb387da3e2806076a", size = 599272, upload-time = "2026-04-07T18:41:17.202Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5c/49/b570250e36471effbc146d22ffb111e775f11ff2d8b503b32526f25a8f23/anthropic-0.82.0-py3-none-any.whl", hash = "sha256:2525828b6798635a7a691c4c62d49bd10bbd288ab83fa4ba55851264dfa5377d", size = 456304, upload-time = "2026-02-18T20:25:18.788Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/1e/7f06da237fde2d7f760a1b61a554c0e780dffe1d264e5aacd0287a7a142b/anthropic-0.91.0-py3-none-any.whl", hash = "sha256:b8672878642774198aa6272f40eb526b9ca11c2a72d4a935d867d445c7371f68", size = 481829, upload-time = "2026-04-07T18:41:15.326Z" },
 ]
 
 [[package]]
@@ -150,7 +150,7 @@ wheels = [
 
 [[package]]
 name = "calfkit"
-version = "0.2.3"
+version = "0.2.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
@@ -169,9 +169,9 @@ dependencies = [
     { name = "typing-inspection" },
     { name = "uuid-utils" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/36/b18b4f280dcbaa1661d5e87a11a98169bc743b5966776c030727cb9ecacd/calfkit-0.2.3.tar.gz", hash = "sha256:70e9dc4630db3d890cb9ed15a9665ac089a977444dc408f16a4d9bff917b84cb", size = 436975, upload-time = "2026-04-02T21:45:58.364Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/49/a6/09b42eeaf6a0bf72ec465dfcd6399a1e97ddbda4e503720b994c83f4f51c/calfkit-0.2.4.tar.gz", hash = "sha256:df3455b054bc4c0d817ff91918ec6a78caddfdab18f462743d270e69741614cd", size = 437532, upload-time = "2026-04-08T08:09:32.154Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/17/2d/5c0909e27b99439bc2a8723680fc8e851d4a6fa21db843e242b43611b272/calfkit-0.2.3-py3-none-any.whl", hash = "sha256:56ad9c882f04c90e450fe596784d531a916e04e6884823eb968065d9e2279029", size = 557971, upload-time = "2026-04-02T21:45:56.551Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/75/19333dfd5f12f97dfbec2968ea1e9a59409e45ab7d8645522cd775f44dad/calfkit-0.2.4-py3-none-any.whl", hash = "sha256:ca74afdd4fc60cdbef926f0a4efeabc26c4cb764a3d00582a167b8cef49c8b8f", size = 558417, upload-time = "2026-04-08T08:09:30.002Z" },
 ]
 
 [[package]]
@@ -1222,7 +1222,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "calfkit", specifier = ">=0.2.3" },
+    { name = "calfkit", specifier = ">=0.2.4" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "plotly", specifier = ">=6.6.0" },
@@ -1441,7 +1441,7 @@ wheels = [
 
 [[package]]
 name = "pydantic-graph"
-version = "1.75.0"
+version = "1.78.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -1449,9 +1449,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/4c/7d6e07ad9affc781201a8ca0a59e655952403f0e14416b2563d4483c1a4c/pydantic_graph-1.75.0.tar.gz", hash = "sha256:c46feb2a0d0e87a4487324ea91e5e547114996bd4026542eebddcaee3e4989bd", size = 58713, upload-time = "2026-04-01T00:38:25.531Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/e4/eb52021f43f2ac495955af19219c1ab261d707bbd15f4dc229079c2276d4/pydantic_graph-1.78.0.tar.gz", hash = "sha256:dd627e37cb3adaf8c95cca6a4b33e0d1b7fc9bed075dc3b8ad5df2c2a3cb432b", size = 58682, upload-time = "2026-04-08T05:20:39.288Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/47/29992d327932faaa511de8fbcf58f75171a70de0986d3aed21fe93888be8/pydantic_graph-1.75.0-py3-none-any.whl", hash = "sha256:ea290452de13477699fe60745fe70f01ae3d16c5e50457e0b3d65a1ea1c9c703", size = 72502, upload-time = "2026-04-01T00:38:18.118Z" },
+    { url = "https://files.pythonhosted.org/packages/47/97/e3dd1a1c6f6b9c104c844c1a2383361a831d1b027c99c0ac1a20544f0b13/pydantic_graph-1.78.0-py3-none-any.whl", hash = "sha256:0302835f46da3ee70ba3602a4d886c41a76fa8750f23f4257b968163ba4bb89f", size = 72500, upload-time = "2026-04-08T05:20:31.237Z" },
 ]
 
 [[package]]

@@ -14,6 +14,7 @@ class ModelConfig(BaseModel):
     temperature: float | None = None
     max_tokens: int | None = None
     reasoning_effort: str | None = None  # OpenAI: "minimal", "low", "medium", "high"
+    reasoning_summary: str | None = None  # OpenAI Responses: "detailed", "concise", "auto"
     thinking: bool = False  # Anthropic: enable adaptive thinking
     api_key: str | None = None  # override per-agent; falls back to env
 
