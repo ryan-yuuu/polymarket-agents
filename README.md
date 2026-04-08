@@ -26,10 +26,10 @@ If you find this project interesting or useful, please consider:
 │                  │   │                     │   │                     │
 │ • Wake agents    │   │ • Autonomous AI     │   │ • Portfolio and     │
 │   on schedule    │   │   agents reasoning  │   │   trading engine    │
-│ • Realtime       │   │   on realtime       │   │ • Execute and       │
-│   price feeds    │   │   market data       │   │   settle orders on  │
-│ • Dynamic prompt │   │   streams           │   │   realtime price    │
-│   serving to     │   │                     │   │   streams           │
+│ • Live market    │   │   on live market    │   │ • Execute and       │
+│   price feeds    │   │   data              │   │   settle orders on  │
+│ • Dynamic prompt │   │                     │   │   live market       │
+│   serving to     │   │                     │   │   prices            │
 │   agents         │   │                     │   │ • Individual agent  │
 │                  │   │                     │   │   wallets           │
 └──────────────────┘   └─────────────────────┘   └─────────────────────┘
@@ -40,9 +40,9 @@ If you find this project interesting or useful, please consider:
 
 Three independent microservices communicate via Calfkit:
 
-1. **Scheduler** — wakes agents on schedule, serves realtime price feeds, and dynamically builds prompts with live market context
-2. **Agent Worker** — autonomous AI agents reasoning on realtime market data to make trading decisions
-3. **Tool Worker** — portfolio and trading tools that execute and settle orders on realtime pricing streams, with individual agent wallets
+1. **Scheduler** — wakes agents on schedule, fetches live market prices, and dynamically builds prompts with market context
+2. **Agent Worker** — autonomous AI agents reasoning on live market data to make trading decisions
+3. **Tool Worker** — portfolio and trading tools that execute and settle orders on live market prices, with individual agent wallets
 
 <br>
 
@@ -136,7 +136,7 @@ uv run python -m scripts.run_tools
 uv run python -m scripts.run_agents
 ```
 
-**Terminal 3 — Scheduler** (wakes agents, price feeds, dynamic prompts):
+**Terminal 3 — Scheduler** (wakes agents, fetches prices, builds prompts):
 
 ```bash
 uv run python -m scripts.run_client
@@ -150,14 +150,19 @@ uv run python -m scripts.run_client --align-start-to-window
 
 The scheduler will begin discovering active BTC Up/Down markets, fetching prices, and sending prompts to your agents. Agents will analyze the market and execute paper trades via the tool worker. Trade logs are written to `data/`.
 
-To deploy only a specific agent, pass `--agent <name>` to the agent worker and scheduler:
+To deploy specific agents, pass `--agent <name> ...` to the agent worker and scheduler:
 
 ```bash
+# Single agent
 uv run python -m scripts.run_agents --agent btc-trader-15m
 uv run python -m scripts.run_client --agent btc-trader-15m
+
+# Multiple agents
+uv run python -m scripts.run_agents --agent btc-trader-15m claude-trader
+uv run python -m scripts.run_client --agent btc-trader-15m claude-trader
 ```
 
-The tool worker does not need an `--agent` flag — it starts with zero wallets and lazily initializes them when an agent first calls `get_portfolio`.
+Omitting `--agent` runs all agents defined in `agents.yaml`. The tool worker does not need an `--agent` flag — it starts with zero wallets and lazily initializes them when an agent first calls `get_portfolio`.
 
 <br>
 
@@ -170,7 +175,7 @@ Each agent in `agents.yaml` supports:
 | `name` | `"btc-trader"` | Unique agent identifier |
 | `model.provider` | `"openai"` | `"openai"` or `"anthropic"` |
 | `model.model_name` | `"gpt-5-mini"` | Model ID passed to the provider |
-| `model.reasoning_effort` | — | OpenAI only: `"low"`, `"medium"`, or `"high"` |
+| `model.reasoning_effort` | — | OpenAI only: `"minimal"`, `"low"`, `"medium"`, or `"high"` |
 | `model.thinking` | `false` | Anthropic only: enable adaptive extended thinking |
 | `model.api_key` | — | Per-agent API key override (falls back to `.env`) |
 | `timeframe` | `"15m"` | Market timeframe: `"5m"`, `"15m"`, or `"4h"` |

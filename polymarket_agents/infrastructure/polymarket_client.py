@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 
 import httpx
 
@@ -57,7 +57,9 @@ class GammaClient:
                 clob_token_ids = json.loads(clob_token_ids)
 
             if len(outcomes) < 2 or len(clob_token_ids) < 2:
-                logger.warning("Market %s has fewer than 2 outcomes/tokens", raw.get("slug"))
+                logger.warning(
+                    "Market %s has fewer than 2 outcomes/tokens", raw.get("slug")
+                )
                 return None
 
             up_token_id = None
@@ -134,7 +136,9 @@ class GammaClient:
             try:
                 price_f = float(price)
             except (ValueError, TypeError):
-                logger.warning("Non-numeric outcome price %r for market %s", price, slug)
+                logger.warning(
+                    "Non-numeric outcome price %r for market %s", price, slug
+                )
                 continue
             if price_f >= 0.99 and i < len(outcomes):
                 outcome = outcomes[i].lower()

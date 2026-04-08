@@ -16,7 +16,10 @@ from calfkit import ToolContext, agent_tool
 
 from polymarket_agents.domain.models import Direction, OrderSide
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
-from polymarket_agents.infrastructure.polymarket_client import ClobRestClient, GammaClient
+from polymarket_agents.infrastructure.polymarket_client import (
+    ClobRestClient,
+    GammaClient,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +114,9 @@ async def place_order(
 
     agent_id = ctx.agent_name or "unknown"
     if _engine.get_wallet(agent_id) is None:
-        logger.warning("place_order rejected: wallet not initialized for agent '%s'", agent_id)
+        logger.warning(
+            "place_order rejected: wallet not initialized for agent '%s'", agent_id
+        )
         return json.dumps(
             {
                 "status": "error",
@@ -136,13 +141,16 @@ async def place_order(
     try:
         execution_price = await _clob.get_price(token_id, rest_side)
     except Exception:
-        logger.exception("CLOB REST price fetch failed for token=%s side=%s", token_id, rest_side)
+        logger.exception(
+            "CLOB REST price fetch failed for token=%s side=%s", token_id, rest_side
+        )
         execution_price = 0.0
 
     if execution_price is None or execution_price <= 0:
         logger.warning(
             "place_order rejected: no price data for %s token (token_id=%s)",
-            direction, token_id,
+            direction,
+            token_id,
         )
         return json.dumps(
             {
@@ -163,7 +171,9 @@ async def place_order(
     # Reject trades on expired markets
     if end_date <= datetime.now(timezone.utc):
         logger.warning(
-            "place_order rejected: market '%s' expired at %s", market_slug, end_date,
+            "place_order rejected: market '%s' expired at %s",
+            market_slug,
+            end_date,
         )
         return json.dumps(
             {
@@ -276,7 +286,9 @@ async def get_portfolio(ctx: ToolContext) -> str:
     now = datetime.now(timezone.utc)
 
     # Collect active positions and their token IDs for batch price fetching
-    active_positions: list[tuple[str, str, object, str]] = []  # (slug, direction, pos, token_id)
+    active_positions: list[
+        tuple[str, str, object, str]
+    ] = []  # (slug, direction, pos, token_id)
     for slug, mp in wallet.positions.items():
         # Hide expired-but-unresolved positions
         if mp.end_date < now:
@@ -304,13 +316,17 @@ async def get_portfolio(ctx: ToolContext) -> str:
                 return bid
             return None
         except Exception:
-            logger.warning("Failed to fetch mid price for token=%s", token_id, exc_info=True)
+            logger.warning(
+                "Failed to fetch mid price for token=%s", token_id, exc_info=True
+            )
             return None
 
     mid_prices = await asyncio.gather(*[_fetch_mid(t[3]) for t in active_positions])
 
     holdings = []
-    for (slug, direction_str, pos, _token_id), current_mid in zip(active_positions, mid_prices):
+    for (slug, direction_str, pos, _token_id), current_mid in zip(
+        active_positions, mid_prices
+    ):
         unrealized_pnl = 0.0
         if current_mid is not None:
             unrealized_pnl = (current_mid - pos.avg_entry_price) * pos.size
@@ -321,9 +337,7 @@ async def get_portfolio(ctx: ToolContext) -> str:
                 "direction": direction_str,
                 "size": round(pos.size, 4),
                 "avg_entry_price": round(pos.avg_entry_price, 4),
-                "current_mid_price": (
-                    round(current_mid, 4) if current_mid else None
-                ),
+                "current_mid_price": (round(current_mid, 4) if current_mid else None),
                 "unrealized_pnl": round(unrealized_pnl, 4),
             }
         )

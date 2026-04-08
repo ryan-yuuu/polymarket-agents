@@ -22,7 +22,7 @@ def load_secrets() -> Secrets:
 def parse_cli_args() -> argparse.Namespace:
     """Parse CLI arguments for the scheduler."""
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--agent", default=None)
+    parser.add_argument("--agent", nargs="*", default=None)
     parser.add_argument(
         "--align-start-to-window",
         action="store_true",
@@ -33,20 +33,22 @@ def parse_cli_args() -> argparse.Namespace:
     return args
 
 
-def parse_agent_filter() -> str | None:
-    """Parse an optional ``--agent <name>`` argument from the CLI."""
+def parse_agent_filter() -> list[str] | None:
+    """Parse optional ``--agent <name> ...`` arguments from the CLI."""
     return parse_cli_args().agent
 
 
-def filter_agents(config: AppConfig, agent_name: str | None) -> list[AgentConfig]:
-    """Return agents matching *agent_name*, or all agents if *None*."""
-    if agent_name is None:
+def filter_agents(
+    config: AppConfig, agent_names: list[str] | None
+) -> list[AgentConfig]:
+    """Return agents matching *agent_names*, or all agents if *None*."""
+    if not agent_names:
         return config.agents
 
-    matched = [a for a in config.agents if a.name == agent_name]
-    if not matched:
-        available = [a.name for a in config.agents]
+    available = [a.name for a in config.agents]
+    missing = [name for name in agent_names if name not in available]
+    if missing:
         raise SystemExit(
-            f"Agent '{agent_name}' not found in config. Available: {available}"
+            f"Agent(s) {missing} not found in config. Available: {available}"
         )
-    return matched
+    return [a for a in config.agents if a.name in agent_names]
