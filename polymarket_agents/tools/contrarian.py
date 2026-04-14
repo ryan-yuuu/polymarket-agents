@@ -22,11 +22,11 @@ from calfkit import ToolContext, agent_tool
 
 from polymarket_agents.domain.models import Direction, OrderSide
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
-from polymarket_agents.tools._balance import compute_effective_balance
 from polymarket_agents.infrastructure.polymarket_client import (
     ClobRestClient,
     GammaClient,
 )
+from polymarket_agents.tools._balance import compute_effective_balance
 
 logger = logging.getLogger(__name__)
 
@@ -225,9 +225,7 @@ async def submit_order(
                 _clob.get_price(opp_token_id, "buy"),
             )
         except Exception:
-            logger.exception(
-                "CLOB REST price fetch failed for contrarian buy tokens"
-            )
+            logger.exception("CLOB REST price fetch failed for contrarian buy tokens")
             agent_price, opp_price = 0.0, 0.0
 
         if not agent_price or agent_price <= 0:
@@ -257,7 +255,7 @@ async def submit_order(
         if result.error:
             return json.dumps({"status": "error", "message": result.error})
 
-        # Skip buy if real execution price exceeds configured limit
+        # Skip buy if real execution price exceeds configured limit, fill or kill
         buy_order_limit = deps.get("buy_order_limit")
         if buy_order_limit is not None and result.real_price > buy_order_limit:
             logger.info(
@@ -272,7 +270,7 @@ async def submit_order(
                     "direction": direction,
                     "side": "buy",
                     "size": size,
-                    "message": "Order placed. Will execute when market price meets limit.",
+                    "message": "Order placed sucessfully.",
                 }
             )
 
@@ -355,16 +353,12 @@ async def submit_order(
     # SELL flow
     # ------------------------------------------------------------------
     wallet = _engine.get_wallet(agent_id)
-    sell_result = _compute_contrarian_sell(
-        direction_enum, size, wallet, market_slug
-    )
+    sell_result = _compute_contrarian_sell(direction_enum, size, wallet, market_slug)
     if sell_result.error:
         return json.dumps({"status": "error", "message": sell_result.error})
 
     real_token_id = (
-        up_token_id
-        if sell_result.real_direction == Direction.UP
-        else down_token_id
+        up_token_id if sell_result.real_direction == Direction.UP else down_token_id
     )
 
     try:

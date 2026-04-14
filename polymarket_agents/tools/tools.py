@@ -16,11 +16,11 @@ from calfkit import ToolContext, agent_tool
 
 from polymarket_agents.domain.models import Direction, OrderSide
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
-from polymarket_agents.tools._balance import compute_effective_balance
 from polymarket_agents.infrastructure.polymarket_client import (
     ClobRestClient,
     GammaClient,
 )
+from polymarket_agents.tools._balance import compute_effective_balance
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +180,7 @@ async def place_order(
                     "direction": direction,
                     "side": "buy",
                     "size": size,
-                    "message": "Order placed. Will execute when market price meets limit.",
+                    "message": "Order placed sucessfuly.",
                 }
             )
 

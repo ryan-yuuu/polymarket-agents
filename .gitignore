@@ -207,11 +207,14 @@ marimo/_lsp/
 __marimo__/
 
 agents.yaml
-data/*.csv
-data/archive/*.csv
+*.csv
+.DS_Store
+
 
 .claude/
 
 .private/
 
 research/
+
+*.db
