@@ -18,6 +18,11 @@ from polymarket_agents.infrastructure.polymarket_client import (
     ClobRestClient,
     GammaClient,
 )
+from polymarket_agents.tools.contrarian import (
+    init_contrarian_tools,
+    submit_order,
+    view_portfolio,
+)
 from polymarket_agents.tools.tools import (
     calculator,
     get_portfolio,
@@ -47,10 +52,17 @@ async def main() -> None:
 
     # --- Inject into tools module ---
     init_tools(engine, clob, gamma)
+    init_contrarian_tools(engine, clob, gamma)
 
     # --- Start Worker ---
     async with Client.connect(config.broker_url) as client:
-        worker = Worker(client, nodes=[place_order, get_portfolio, calculator])
+        worker = Worker(
+            client,
+            nodes=[
+                place_order, get_portfolio, calculator,
+                submit_order, view_portfolio,
+            ],
+        )
         logger.info("Tool worker starting on %s", config.broker_url)
         try:
             await worker.run()

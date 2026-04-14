@@ -8,7 +8,7 @@ from calfkit import Agent
 
 from polymarket_agents.config.models import AgentConfig, Secrets
 from polymarket_agents.infrastructure.model_factory import create_model_client
-from polymarket_agents.tools.tools import calculator, get_portfolio, place_order
+from polymarket_agents.tools.toolsets import TOOLSETS
 
 _DEFAULT_PROMPT_FILE = Path(".calfkit_agents/default.md")
 
@@ -41,7 +41,7 @@ def build_trading_agent(
         node_id=config.name,
         system_prompt=system_prompt,
         subscribe_topics=topic,
-        tools=[place_order, get_portfolio, calculator],
+        tools=TOOLSETS[config.toolset],
         model_client=model_client,
     )
 

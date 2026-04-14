@@ -16,6 +16,7 @@ from calfkit import ToolContext, agent_tool
 
 from polymarket_agents.domain.models import Direction, OrderSide
 from polymarket_agents.infrastructure.paper_trading import PaperTradingEngine
+from polymarket_agents.tools._balance import compute_effective_balance
 from polymarket_agents.infrastructure.polymarket_client import (
     ClobRestClient,
     GammaClient,
@@ -113,7 +114,8 @@ async def place_order(
         return json.dumps({"status": "error", "message": "Size must be positive."})
 
     agent_id = ctx.agent_name or "unknown"
-    if _engine.get_wallet(agent_id) is None:
+    wallet = _engine.get_wallet(agent_id)
+    if wallet is None:
         logger.warning(
             "place_order rejected: wallet not initialized for agent '%s'", agent_id
         )
@@ -129,6 +131,7 @@ async def place_order(
     up_token_id = deps.get("up_token_id", "")
     down_token_id = deps.get("down_token_id", "")
     market_slug = deps.get("market_slug", "")
+    max_usable_amount = deps.get("max_usable_amount")
 
     direction_enum = Direction(direction.lower())
     order_side = OrderSide(side.lower())
@@ -159,6 +162,41 @@ async def place_order(
                 "Market data may not be available yet. Try again shortly.",
             }
         )
+
+    # Skip buy if price exceeds configured limit
+    buy_order_limit = deps.get("buy_order_limit")
+    if order_side == OrderSide.BUY and buy_order_limit is not None:
+        if execution_price > buy_order_limit:
+            logger.info(
+                "%s buy skipped: %s price $%.4f > limit $%.4f",
+                agent_id,
+                direction,
+                execution_price,
+                buy_order_limit,
+            )
+            return json.dumps(
+                {
+                    "status": "pending",
+                    "direction": direction,
+                    "side": "buy",
+                    "size": size,
+                    "message": "Order placed. Will execute when market price meets limit.",
+                }
+            )
+
+    # Cap buy orders against effective balance
+    if order_side == OrderSide.BUY and max_usable_amount is not None:
+        effective_bal = compute_effective_balance(
+            wallet.balance, wallet.positions, market_slug, max_usable_amount
+        )
+        order_cost = round(size * execution_price, 2)
+        if order_cost > effective_bal:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": f"Insufficient balance: need ${order_cost:.2f}, have ${effective_bal:.2f}",
+                }
+            )
 
     # Parse end_date from deps
     end_date_str = deps.get("end_date", "")
@@ -219,6 +257,10 @@ async def place_order(
         record.balance_after,
     )
 
+    effective_after = compute_effective_balance(
+        wallet.balance, wallet.positions, market_slug, max_usable_amount
+    )
+
     return json.dumps(
         {
             "status": "filled",
@@ -227,7 +269,7 @@ async def place_order(
             "size": size,
             "execution_price": round(execution_price, 2),
             "cost": round(record.cost, 2),
-            "balance_after": round(record.balance_after, 2),
+            "balance_after": round(effective_after, 2),
             "settlements": len(settlements),
         }
     )
@@ -342,9 +384,15 @@ async def get_portfolio(ctx: ToolContext) -> str:
             }
         )
 
+    max_usable_amount = deps.get("max_usable_amount")
+    market_slug = deps.get("market_slug", "")
+    effective_bal = compute_effective_balance(
+        wallet.balance, wallet.positions, market_slug, max_usable_amount
+    )
+
     return json.dumps(
         {
-            "cash_balance": round(wallet.balance, 2),
+            "cash_balance": round(effective_bal, 2),
             "holdings": holdings,
         }
     )

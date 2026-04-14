@@ -32,9 +32,9 @@ Three-service system orchestrated via [CalfKit](https://github.com/calf-ai/calfk
 
 1. **Scheduler** (`scripts/run_client.py`) — Discovers active BTC Up/Down markets via Gamma API, fetches live prices from CLOB REST API, fetches BTC-USD candlesticks from Coinbase, builds prompts with market context, and publishes to agent topics. Polls on a configurable interval with optional clock-alignment.
 
-2. **Agent Worker** (`scripts/run_agents.py`) — CalfKit Worker nodes running LLM agents. Each agent subscribes to its topic, receives market prompts, reasons with tools (place_order, get_portfolio, calculator), and executes trades. Supports OpenAI (Responses API by default, Chat Completions via `openai-chat`) and Anthropic models with per-agent config.
+2. **Agent Worker** (`scripts/run_agents.py`) — CalfKit Worker nodes running LLM agents. Each agent subscribes to its topic, receives market prompts, reasons with tools, and executes trades. Default toolset: `place_order`, `get_portfolio`, `calculator`. Contrarian toolset: `submit_order`, `view_portfolio`, `calculator` (silently flips trade direction). Supports OpenAI (Responses API by default, Chat Completions via `openai-chat`) and Anthropic models with per-agent config.
 
-3. **Tool Worker** (`scripts/run_tools.py`) — CalfKit Worker running tool nodes. Handles paper trading execution, portfolio management, and math calculations. Uses module-level globals (`_engine`, `_clob`, `_gamma` in `tools/tools.py`) initialized at startup.
+3. **Tool Worker** (`scripts/run_tools.py`) — CalfKit Worker running tool nodes. Handles paper trading execution, portfolio management, and math calculations. Uses module-level globals (`_engine`, `_clob`, `_gamma`) in both `tools/tools.py` and `tools/contrarian.py`, initialized at startup.
 
 ## Key Design Patterns
 
@@ -42,11 +42,13 @@ Three-service system orchestrated via [CalfKit](https://github.com/calf-ai/calfk
 - **Per-agent async locks:** Prevent race conditions during trade execution and settlement
 - **CSV persistence:** Every trade appends to `data/{agent_id}.{epoch}.trades.csv`; `resume: true` replays the latest CSV to restore state
 - **Market settlement:** Expired markets auto-resolve via Gamma API with payout settlement
-- **Module-level DI:** `tools/tools.py` exports `set_engine()`, `set_clob()`, `set_gamma()` called by `run_tools.py` before starting the worker
+- **Module-level DI:** `tools/tools.py` exports `init_tools()` and `tools/contrarian.py` exports `init_contrarian_tools()`, both called by `run_tools.py` before starting the worker
+- **Toolset registry:** `tools/toolsets.py` maps toolset names (`"default"`, `"contrarian"`) to tool lists, selected per-agent via `toolset` config
+- **Effective balance cap:** `max_usable_amount` config limits how much of the real wallet an agent can see/spend, scoped to the current market slug's deployed cost basis
 
 ## Configuration
 
-- `agents.yaml` — Agent definitions (model, timeframe, balance, strategy prompt, polling interval, cycle timeout). See `agents.example.yaml` for reference.
+- `agents.yaml` — Agent definitions (model, timeframe, balance, strategy prompt, polling interval, cycle timeout, toolset, max_usable_amount). See `agents.example.yaml` for reference.
 - `.env` — API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). See `.env.example`.
 - `.calfkit_agents/*.md` — System prompt files for agent strategies (default conservative, aggressive).
 - CalfKit broker must be running on `broker_url` (default `localhost:9092`).
@@ -58,3 +60,6 @@ Three-service system orchestrated via [CalfKit](https://github.com/calf-ai/calfk
 - `polymarket_agents/infrastructure/` — External integrations (Gamma, CLOB, Coinbase, WebSocket, PaperTradingEngine)
 - `polymarket_agents/agents/trader.py` — CalfKit agent factory
 - `polymarket_agents/tools/tools.py` — CalfKit `@agent_tool` definitions (place_order, get_portfolio, calculator)
+- `polymarket_agents/tools/contrarian.py` — Contrarian `@agent_tool` variants (submit_order, view_portfolio) that silently flip trade direction
+- `polymarket_agents/tools/toolsets.py` — Toolset name → tool list registry
+- `polymarket_agents/tools/_balance.py` — Shared effective-balance computation for `max_usable_amount` cap

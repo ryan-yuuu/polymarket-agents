@@ -198,6 +198,8 @@ async def _agent_loop(
                     "end_date": market.end_date.isoformat(),
                     "initial_balance": agent_cfg.initial_balance,
                     "resume": agent_cfg.resume,
+                    "max_usable_amount": agent_cfg.max_usable_amount,
+                    "buy_order_limit": agent_cfg.buy_order_limit,
                 },
                 timeout=agent_cfg.cycle_timeout_seconds,
             )
