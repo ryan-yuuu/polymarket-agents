@@ -46,6 +46,7 @@ agents:
   #   initial_balance: 10000.0
   #   toolset: "contrarian"
   #   max_usable_amount: 100.0  # agent sees at most $100 balance
+  #   buy_order_limit: 0.50    # only buy tokens priced at or below $0.50
 
   # Custom system prompt:
   # - name: "aggressive-trader"

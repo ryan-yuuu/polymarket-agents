@@ -45,10 +45,11 @@ Three-service system orchestrated via [CalfKit](https://github.com/calf-ai/calfk
 - **Module-level DI:** `tools/tools.py` exports `init_tools()` and `tools/contrarian.py` exports `init_contrarian_tools()`, both called by `run_tools.py` before starting the worker
 - **Toolset registry:** `tools/toolsets.py` maps toolset names (`"default"`, `"contrarian"`) to tool lists, selected per-agent via `toolset` config
 - **Effective balance cap:** `max_usable_amount` config limits how much of the real wallet an agent can see/spend, scoped to the current market slug's deployed cost basis
+- **Buy order limit:** `buy_order_limit` config skips buy execution when the real token price exceeds the threshold, returning a pending status to the agent
 
 ## Configuration
 
-- `agents.yaml` — Agent definitions (model, timeframe, balance, strategy prompt, polling interval, cycle timeout, toolset, max_usable_amount). See `agents.example.yaml` for reference.
+- `agents.yaml` — Agent definitions (model, timeframe, balance, strategy prompt, polling interval, cycle timeout, toolset, max_usable_amount, buy_order_limit). See `agents.example.yaml` for reference.
 - `.env` — API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`). See `.env.example`.
 - `.calfkit_agents/*.md` — System prompt files for agent strategies (default conservative, aggressive).
 - CalfKit broker must be running on `broker_url` (default `localhost:9092`).
